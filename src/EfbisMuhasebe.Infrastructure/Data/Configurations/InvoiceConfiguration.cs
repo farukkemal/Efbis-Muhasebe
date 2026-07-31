@@ -16,6 +16,8 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(x => x.SubTotal).HasPrecision(18, 2);
         builder.Property(x => x.VatTotal).HasPrecision(18, 2);
         builder.Property(x => x.DiscountTotal).HasPrecision(18, 2);
+        builder.Property(x => x.WithholdingRate).HasPrecision(18, 2);
+        builder.Property(x => x.WithholdingTotal).HasPrecision(18, 2);
         builder.Property(x => x.GrandTotal).HasPrecision(18, 2);
 
         builder.HasOne(x => x.Customer)

@@ -15,8 +15,14 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        await context.Database.EnsureDeletedAsync();
-        await context.Database.EnsureCreatedAsync();
+        // 1. Pre-existing uzaktan veritabanlarında (ör. Somee.com) master izni gerektirmeden EF Core Migration'larını uygula
+        await context.Database.MigrateAsync();
+
+        // Veritabanında zaten veri varsa seed işlemini atla (mevcut verileri koru)
+        if (await context.Users.AnyAsync())
+        {
+            return;
+        }
 
         // 1. SADECE SUPER ADMIN HESABI
         var superAdmin = new User
