@@ -1,0 +1,393 @@
+@{
+    ViewData["Title"] = "Vardiya Takip & Planlama";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Employees">İnsan Kaynakları</a></li>
+    <li class="breadcrumb-item active">Vardiya Takip</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-calendar-week me-2 text-amber" style="color: #d97706;"></i>Vardiya Takip & Planlama
+        </h1>
+        <p class="page-subtitle">
+            Personel vardiya çizelgelerini, giriş/çıkış saatlerini, mesailerini ve devamsızlıklarını yönetin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-sm btn-outline-secondary" id="btnRefresh" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-export-excel" id="btnExport" onclick="exportShiftsToCSV()" title="Excel / CSV İndir">
+            <i class="bi bi-file-earmark-excel me-1"></i>Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="window.print()" title="Çizelgeyi Yazdır">
+            <i class="bi bi-printer me-1"></i>Yazdır
+        </button>
+        <button class="btn btn-sm text-white fw-bold" style="background: linear-gradient(135deg, #d97706, #b45309);" onclick="openAutoGenerateScheduleModal()">
+            <i class="bi bi-magic me-1"></i>Haftalık Plan Oluştur
+        </button>
+        <button class="btn-efbis-primary" id="btnNewShift">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Vardiya Ekle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-2-4" style="flex: 0 0 auto; width: 20%;">
+        <div class="stat-card" style="border-left: 4px solid #2563eb;">
+            <div class="stat-icon blue"><i class="bi bi-calendar-day"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statTodayShifts">0</div>
+                <div class="stat-label">Bugünkü Planlı Vardiya</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-2-4" style="flex: 0 0 auto; width: 20%;">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-person-workspace"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statActiveNow">0</div>
+                <div class="stat-label">Şu An Mağazada (Aktif)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-2-4" style="flex: 0 0 auto; width: 20%;">
+        <div class="stat-card" style="border-left: 4px solid #0891b2;">
+            <div class="stat-icon" style="background:#cff4fc;color:#0891b2;"><i class="bi bi-check2-circle"></i></div>
+            <div>
+                <div class="stat-value text-info" id="statCompletedToday">0</div>
+                <div class="stat-label">Tamamlanan Vardiya</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-2-4" style="flex: 0 0 auto; width: 20%;">
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
+            <div class="stat-icon red"><i class="bi bi-person-x-fill"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="statAbsentToday">0</div>
+                <div class="stat-label">Devamsız Personel</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-2-4" style="flex: 0 0 auto; width: 20%;">
+        <div class="stat-card" style="border-left: 4px solid #d97706;">
+            <div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-clock-history"></i></div>
+            <div>
+                <div class="stat-value text-warning" id="statTotalOvertimeHours" style="color:#d97706 !important;">0 Sa</div>
+                <div class="stat-label">Bugünkü Fazla Mesai</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Chart & Analytics Accordion ───────────────────────────────────────────── -->
+<div class="efbis-card mb-4">
+    <div class="efbis-card-header d-flex justify-content-between align-items-center">
+        <div class="efbis-card-title">
+            <i class="bi bi-bar-chart-line-fill text-warning"></i>
+            Vardiya Türü & Mesai Analitiği
+        </div>
+        <button class="btn btn-sm btn-link text-decoration-none text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#shiftChartCollapse">
+            <i class="bi bi-chevron-down"></i> Grafiği Göster/Gizle
+        </button>
+    </div>
+    <div class="collapse show" id="shiftChartCollapse">
+        <div class="card-body bg-light border-top">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-lg-8">
+                    <div style="height: 200px; position: relative;">
+                        <canvas id="shiftTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4">
+                    <div class="p-3 bg-white rounded border shadow-sm">
+                        <h6 class="fw-bold mb-3 text-dark border-bottom pb-2">
+                            <i class="bi bi-clock-history text-primary me-1"></i>Vardiya Saatleri Bilgisi
+                        </h6>
+                        <div class="small mb-1"><span class="badge bg-primary">Sabah:</span> 09:00 - 17:00 (8 Saat)</div>
+                        <div class="small mb-1"><span class="badge bg-success">Öğle:</span> 13:00 - 21:00 (8 Saat)</div>
+                        <div class="small mb-1"><span class="badge bg-warning text-dark">Akşam:</span> 17:00 - 01:00 (8 Saat)</div>
+                        <div class="small mb-1"><span class="badge bg-info text-dark">Tam Gün:</span> 10:00 - 22:00 (12 Saat)</div>
+                        <div class="small"><span class="badge bg-secondary">Yarım Gün:</span> 09:00 - 13:00 (4 Saat)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main View Cards with Navigation Tabs ─────────────────────────────────── -->
+<div class="efbis-card mb-4">
+    <div class="efbis-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <ul class="nav nav-pills card-header-pills" id="shiftTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active fw-bold px-3 py-1.5" id="list-tab" data-bs-toggle="tab" data-bs-target="#listView" type="button" role="tab">
+                    <i class="bi bi-list-ul me-1"></i>Liste Görünümü
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold px-3 py-1.5" id="roster-tab" data-bs-toggle="tab" data-bs-target="#rosterView" type="button" role="tab" onclick="renderWeeklyRosterGrid()">
+                    <i class="bi bi-grid-3x3-gap-fill me-1"></i>Haftalık Vardiya Çizelgesi (Roster Grid)
+                </button>
+            </li>
+        </ul>
+        <div class="text-muted small" id="viewInfo">Personel Çalışma Çizelgesi</div>
+    </div>
+
+    <div class="tab-content" id="shiftTabContent">
+        <!-- ── TAB 1: LIST VIEW ─────────────────────────────────────────────── -->
+        <div class="tab-pane fade show active" id="listView" role="tabpanel">
+            <!-- Filter Bar -->
+            <div class="p-3 border-bottom bg-light">
+                <div class="row g-2 align-items-center mb-2">
+                    <div class="col-12 col-md-3">
+                        <div class="search-box">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="search-input" id="filterSearch" placeholder="Vardiya kodu, personel ara..." />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="filter-select w-100" id="filterDepartment">
+                            <option value="">Tüm Departmanlar</option>
+                            <option value="1">Depo & Lojistik</option>
+                            <option value="2">Kasa Birimi</option>
+                            <option value="3">Reyon & Satış</option>
+                            <option value="4">Müşteri Danışmanı</option>
+                            <option value="5">Yönetim & İdari</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="filter-select w-100" id="filterShiftType">
+                            <option value="">Tüm Vardiyalar</option>
+                            <option value="1">Sabah Vardiyası</option>
+                            <option value="2">Öğle Vardiyası</option>
+                            <option value="3">Akşam Vardiyası</option>
+                            <option value="4">Tam Gün</option>
+                            <option value="5">Yarım Gün</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="filter-select w-100" id="filterStatus">
+                            <option value="">Tüm Durumlar</option>
+                            <option value="1">🔵 Planlandı</option>
+                            <option value="2">🟢 Aktif (Çalışıyor)</option>
+                            <option value="3">✅ Tamamlandı</option>
+                            <option value="4">🔴 Devamsız (Gelmedi)</option>
+                            <option value="5">⚪ İptal</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3 d-flex gap-1">
+                        <input type="date" class="filter-select w-50" id="filterStartDate" title="Başlangıç Tarihi" />
+                        <input type="date" class="filter-select w-50" id="filterEndDate" title="Bitiş Tarihi" />
+                    </div>
+                </div>
+
+                <!-- Quick Date Presets -->
+                <div class="d-flex align-items-center gap-2 pt-1 flex-wrap" style="font-size:12.5px;">
+                    <span class="text-muted fw-500 me-1"><i class="bi bi-lightning-charge text-warning"></i>Hızlı Filtre:</span>
+                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" onclick="setQuickDate('today')">Bugün</button>
+                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" onclick="setQuickDate('thisWeek')">Bu Hafta</button>
+                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" onclick="setQuickDate('nextWeek')">Gelecek Hafta</button>
+                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2" onclick="setQuickDate('thisMonth')">Bu Ay</button>
+                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="clearShiftFilters()">Tümünü Temizle</button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table class="efbis-table" id="shiftsTable">
+                    <thead>
+                        <tr>
+                            <th>Vardiya Kodu</th>
+                            <th>Personel</th>
+                            <th>Departman</th>
+                            <th>Tarih</th>
+                            <th>Vardiya Tipi</th>
+                            <th>Planlanan (Baş-Bitiş)</th>
+                            <th>Gerçekleşen G/Ç</th>
+                            <th>Fazla Mesai</th>
+                            <th>Durum</th>
+                            <th style="text-align:center;">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shiftsTableBody">
+                        <!-- AJAX render -->
+                    </tbody>
+                </table>
+
+                <div class="empty-state d-none text-center py-5" id="emptyState">
+                    <i class="bi bi-calendar-x fs-1 text-muted mb-2"></i>
+                    <h6>Vardiya Bulunamadı</h6>
+                    <p class="text-muted" style="font-size:13px;">Seçilen tarih ve filtre kriterlerine uygun vardiya kaydı mevcut değil.</p>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+                <div id="paginationContainer"></div>
+            </div>
+        </div>
+
+        <!-- ── TAB 2: WEEKLY ROSTER GRID ───────────────────────────────────── -->
+        <div class="tab-pane fade" id="rosterView" role="tabpanel">
+            <div class="p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-calendar3 text-primary me-2"></i>Mağaza Personeli Haftalık Çalışma Çizelgesi
+                        </h6>
+                        <small class="text-muted" id="rosterWeekTitle">Haftalık görünüm</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="navigateRosterWeek(-1)" title="Önceki Hafta">
+                            <i class="bi bi-chevron-left"></i> Önceki Hafta
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="navigateRosterWeek(0)" title="Bu Hafta">
+                            Bu Hafta
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="navigateRosterWeek(1)" title="Gelecek Hafta">
+                            Gelecek Hafta <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive border rounded shadow-sm" id="rosterGridContainer">
+                    <!-- Dynamic weekly schedule table rendered via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YENİ / DÜZENLE VARDİYA -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="shiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                <h5 class="modal-title" id="shiftModalTitle">
+                    <i class="bi bi-calendar-plus me-2"></i>Yeni Vardiya Kaydı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="shiftForm">
+                    <input type="hidden" id="shiftId" name="id" value="0">
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Personel <span class="required">*</span></label>
+                            <select class="efbis-select" id="employeeId" name="employeeId" required>
+                                <option value="">Seçiniz...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Tarih <span class="required">*</span></label>
+                            <input type="date" class="efbis-input" id="shiftDate" name="shiftDate" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Vardiya Tipi <span class="required">*</span></label>
+                            <select class="efbis-select" id="shiftType" name="shiftType" required>
+                                <option value="">Seçiniz...</option>
+                                <option value="1">Sabah Vardiyası (09:00-17:00)</option>
+                                <option value="2">Öğle Vardiyası (13:00-21:00)</option>
+                                <option value="3">Akşam Vardiyası (17:00-01:00)</option>
+                                <option value="4">Tam Gün (10:00-22:00)</option>
+                                <option value="5">Yarım Gün (09:00-13:00)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Planlanan Başlangıç Saati</label>
+                            <input type="time" class="efbis-input" id="startTime" name="startTime" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Planlanan Bitiş Saati</label>
+                            <input type="time" class="efbis-input" id="endTime" name="endTime" />
+                        </div>
+                    </div>
+
+                    <div class="edit-only d-none">
+                        <hr />
+                        <h6 class="fw-bold text-dark mb-3">Gerçekleşen Giriş/Çıkış & Durum Bilgileri</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="efbis-label">Gerçekleşen Giriş</label>
+                                <input type="time" class="efbis-input" id="actualStartTime" name="actualStartTime" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="efbis-label">Gerçekleşen Çıkış</label>
+                                <input type="time" class="efbis-input" id="actualEndTime" name="actualEndTime" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="efbis-label">Vardiya Durumu</label>
+                                <select class="efbis-select" id="status" name="status">
+                                    <option value="1">Planlandı</option>
+                                    <option value="2">Aktif</option>
+                                    <option value="3">Tamamlandı</option>
+                                    <option value="4">Gelmedi / Devamsız</option>
+                                    <option value="5">İptal</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama / Notlar</label>
+                        <textarea class="efbis-input" id="notes" name="notes" rows="2" placeholder="Örn: Mağaza indirim haftası mesai uzatması"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" id="btnSave">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: HAFTALIK OTOMATİK PLAN OLUŞTUR -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="autoScheduleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                <h5 class="modal-title">
+                    <i class="bi bi-magic me-2"></i>Haftalık Otomatik Vardiya Planı Oluştur
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size:13.5px;">
+                    Seçtiğiniz tarihin bulunduğu hafta için (Pazartesi–Pazar) 20 mağaza çalışanına departmanlarına uygun olarak otomatik vardiya atanacaktır.
+                </p>
+                <div class="mb-3">
+                    <label class="efbis-label">Hedef Hafta İçinde Bir Tarih Seçiniz <span class="required">*</span></label>
+                    <input type="date" class="efbis-input" id="autoScheduleDate" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="confirmAutoSchedule()">
+                    <i class="bi bi-magic me-1"></i>Planı Oluştur
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/shifts.js" asp-append-version="true"></script>
+}

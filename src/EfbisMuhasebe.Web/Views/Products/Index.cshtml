@@ -1,0 +1,531 @@
+@{
+    ViewData["Title"] = "Tüm Ürünler";
+    var categories = ViewBag.Categories as IEnumerable<EfbisMuhasebe.Application.DTOs.CategoryDto> ?? new List<EfbisMuhasebe.Application.DTOs.CategoryDto>();
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="#">Ürün Yönetimi</a></li>
+    <li class="breadcrumb-item active">Tüm Ürünler</li>
+}
+
+<!-- Ant-Forgery Token for AJAX -->
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-box-seam me-2 text-primary"></i>Tüm Ürünler
+        </h1>
+        <p class="page-subtitle">Sistemdeki tüm ürünleri yönetin, filtreleyin ve düzenleyin.</p>
+    </div>
+    <button class="btn-efbis-primary" id="btnNewProduct" onclick="openCreateModal()">
+        <i class="bi bi-plus-lg"></i> Yeni Ürün Ekle
+    </button>
+</div>
+
+<!-- ─── Stat Cards ──────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4" id="statCards">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-box-seam"></i></div>
+            <div>
+                <div class="stat-value" id="statTotal">—</div>
+                <div class="stat-label">Toplam Ürün</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+            <div>
+                <div class="stat-value" id="statActive">—</div>
+                <div class="stat-label">Aktif Ürün</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon orange"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <div class="stat-value" id="statLow">—</div>
+                <div class="stat-label">Az Stok</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="bi bi-x-circle"></i></div>
+            <div>
+                <div class="stat-value" id="statCritical">—</div>
+                <div class="stat-label">Kritik Stok</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Filters ─────────────────────────────────────────────────────────── -->
+<div class="filter-section">
+    <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" class="search-input"
+               placeholder="Ürün adı, kodu veya barkod ile ara..."
+               oninput="debounceSearch()" />
+    </div>
+
+    <select class="filter-select" id="categoryFilter" onchange="loadProducts()">
+        <option value="">Tüm Kategoriler</option>
+        @foreach (var cat in categories)
+        {
+            <option value="@cat.Id">@cat.Name</option>
+        }
+    </select>
+
+    <select class="filter-select" id="typeFilter" onchange="loadProducts()">
+        <option value="">Tüm Tipler</option>
+        <option value="1">Stoklu Ürün</option>
+        <option value="2">Hizmet</option>
+        <option value="3">Hammadde</option>
+        <option value="4">Mamul</option>
+        <option value="5">Yarı Mamul</option>
+    </select>
+
+    <select class="filter-select" id="statusFilter" onchange="loadProducts()">
+        <option value="">Tüm Durumlar</option>
+        <option value="1">Aktif</option>
+        <option value="2">Pasif</option>
+    </select>
+
+    <select class="filter-select" id="pageSizeSelect" onchange="loadProducts()">
+        <option value="10">10 / Sayfa</option>
+        <option value="25">25 / Sayfa</option>
+        <option value="50">50 / Sayfa</option>
+    </select>
+
+    <button class="btn-efbis-primary" style="padding:8px 14px;" onclick="resetFilters()">
+        <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+</div>
+
+<!-- ─── Product Table ───────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header">
+        <div class="efbis-card-title">
+            <i class="bi bi-table"></i>
+            Ürün Listesi
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 ürün</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadProducts()" title="Yenile">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="productsTable">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortBy('ProductName')" id="th-ProductName">
+                        Ürün Adı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortBy('ProductCode')" id="th-ProductCode">
+                        Ürün Kodu <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Barkod</th>
+                    <th>Kategori</th>
+                    <th>Tip</th>
+                    <th>Birim</th>
+                    <th class="sortable" onclick="sortBy('PurchasePrice')" id="th-PurchasePrice">
+                        Alış Fiyatı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortBy('SalePrice')" id="th-SalePrice">
+                        Satış Fiyatı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortBy('CurrentStock')" id="th-CurrentStock">
+                        Stok <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Stok Durumu</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="productsBody">
+                <tr>
+                    <td colspan="12" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top"
+         style="background:#fafbfc;" id="paginationWrapper">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE / EDIT MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalLabel">
+                    <i class="bi bi-box-seam"></i>
+                    <span id="modalTitleText">Yeni Ürün Ekle</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" novalidate>
+                    <input type="hidden" id="productId" name="Id" value="0" />
+
+                    <div class="row g-4">
+                        <!-- LEFT COLUMN -->
+                        <div class="col-lg-6">
+
+                            <!-- Temel Bilgiler -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-info-circle"></i> Temel Bilgiler
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="efbis-label">Ürün Adı <span class="required">*</span></label>
+                                        <input type="text" id="productName" class="efbis-input"
+                                               placeholder="Ürün adını girin" maxlength="200" required />
+                                        <div class="invalid-feedback d-block text-danger" id="err-productName" style="font-size:12px;"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Ürün Kodu <span class="required">*</span></label>
+                                        <input type="text" id="productCode" class="efbis-input"
+                                               placeholder="Örn: ELK-001" maxlength="50" required />
+                                        <div class="invalid-feedback d-block text-danger" id="err-productCode" style="font-size:12px;"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Barkod</label>
+                                        <input type="text" id="barcode" class="efbis-input"
+                                               placeholder="Barkod numarası" maxlength="100" />
+                                        <div class="invalid-feedback d-block text-danger" id="err-barcode" style="font-size:12px;"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Kategori</label>
+                                        <select id="categoryId" class="efbis-select">
+                                            <option value="">-- Kategori Seçin --</option>
+                                            @foreach (var cat in categories)
+                                            {
+                                                <option value="@cat.Id">@cat.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Ürün Tipi</label>
+                                        <select id="productType" class="efbis-select">
+                                            <option value="1">Stoklu Ürün</option>
+                                            <option value="2">Hizmet</option>
+                                            <option value="3">Hammadde</option>
+                                            <option value="4">Mamul</option>
+                                            <option value="5">Yarı Mamul</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Birim</label>
+                                        <select id="unit" class="efbis-select">
+                                            <option value="1">Adet</option>
+                                            <option value="2">Kg</option>
+                                            <option value="3">Litre</option>
+                                            <option value="4">Paket</option>
+                                            <option value="5">Koli</option>
+                                            <option value="6">Metre</option>
+                                            <option value="7">Çift</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Alış Bilgileri -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-cart-plus"></i> Alış Bilgileri
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Alış Fiyatı</label>
+                                        <div class="input-group-price">
+                                            <span class="currency-prefix">₺</span>
+                                            <input type="number" id="purchasePrice" class="efbis-input"
+                                                   placeholder="0.00" min="0" step="0.01" value="0" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">KDV Oranı</label>
+                                        <select id="purchaseVatRate" class="efbis-select">
+                                            <option value="0">%0</option>
+                                            <option value="1">%1</option>
+                                            <option value="8">%8</option>
+                                            <option value="10">%10</option>
+                                            <option value="20" selected>%20</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="efbis-label">KDV Durumu</label>
+                                        <div class="radio-group">
+                                            <label class="radio-option">
+                                                <input type="radio" name="purchaseVatIncluded" id="vatExcluded" value="false" checked />
+                                                <label for="vatExcluded">KDV Hariç</label>
+                                            </label>
+                                            <label class="radio-option">
+                                                <input type="radio" name="purchaseVatIncluded" id="vatIncluded" value="true" />
+                                                <label for="vatIncluded">KDV Dahil</label>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">İskonto Tipi</label>
+                                        <select id="discountType" class="efbis-select" onchange="toggleDiscountField()">
+                                            <option value="0">İskonto Yok</option>
+                                            <option value="1">Yüzde (%)</option>
+                                            <option value="2">Tutar (₺)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6" id="discountValueWrapper" style="display:none;">
+                                        <label class="efbis-label" id="discountValueLabel">İskonto Değeri</label>
+                                        <input type="number" id="discountValue" class="efbis-input"
+                                               placeholder="0" min="0" step="0.01" value="0" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Satış Bilgileri -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-bag-check"></i> Satış Bilgileri
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Satış Fiyatı</label>
+                                        <div class="input-group-price">
+                                            <span class="currency-prefix">₺</span>
+                                            <input type="number" id="salePrice" class="efbis-input"
+                                                   placeholder="0.00" min="0" step="0.01" value="0"
+                                                   oninput="calcProfit()" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">KDV Oranı</label>
+                                        <select id="saleVatRate" class="efbis-select">
+                                            <option value="0">%0</option>
+                                            <option value="1">%1</option>
+                                            <option value="8">%8</option>
+                                            <option value="10">%10</option>
+                                            <option value="20" selected>%20</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="efbis-label">KDV Durumu</label>
+                                        <div class="radio-group">
+                                            <label class="radio-option">
+                                                <input type="radio" name="saleVatIncluded" id="saleVatExcluded" value="false" checked />
+                                                <label for="saleVatExcluded">KDV Hariç</label>
+                                            </label>
+                                            <label class="radio-option">
+                                                <input type="radio" name="saleVatIncluded" id="saleVatIncluded" value="true" />
+                                                <label for="saleVatIncluded">KDV Dahil</label>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Kâr Göstergesi -->
+                                    <div class="col-12">
+                                        <div id="profitIndicator" style="display:none; padding:10px 14px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0; font-size:13px;">
+                                            <i class="bi bi-graph-up-arrow text-success me-1"></i>
+                                            Kâr Marjı: <strong id="profitPercent" class="text-success">0%</strong>
+                                            &nbsp;|&nbsp; Kâr Tutarı: <strong id="profitAmount" class="text-success">0 ₺</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN -->
+                        <div class="col-lg-6">
+
+                            <!-- Özel Vergiler -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-percent"></i> Özel Vergiler
+                                    <span class="ms-1 text-muted" style="font-size:11px;font-weight:400;">(Opsiyonel)</span>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">ÖTV Tipi</label>
+                                        <select id="specialTaxType" class="efbis-select" onchange="toggleSpecialTax()">
+                                            <option value="0">Yok</option>
+                                            <option value="1">Oransal</option>
+                                            <option value="2">Tutar</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6" id="specialTaxValueWrapper" style="display:none;">
+                                        <label class="efbis-label" id="specialTaxValueLabel">ÖTV Oranı / Tutarı</label>
+                                        <input type="number" id="specialTaxValue" class="efbis-input"
+                                               placeholder="0" min="0" step="0.01" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">ÖİV Oranı (%)</label>
+                                        <input type="number" id="communicationTaxRate" class="efbis-input"
+                                               placeholder="0" min="0" max="100" step="0.01" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Stok Bilgileri -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-archive"></i> Stok Bilgileri
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6" id="initialStockWrapper">
+                                        <label class="efbis-label">Başlangıç Stok Miktarı</label>
+                                        <input type="number" id="initialStock" class="efbis-input"
+                                               placeholder="0" min="0" step="0.01" value="0" />
+                                        <small class="text-muted" style="font-size:11px;">Ürün ilk stok miktarı</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="efbis-label">Minimum Stok Miktarı</label>
+                                        <input type="number" id="minimumStock" class="efbis-input"
+                                               placeholder="0" min="0" step="0.01" value="0"
+                                               oninput="updateStockPreview()" />
+                                        <small class="text-muted" style="font-size:11px;">Kritik stok seviyesi</small>
+                                    </div>
+
+                                    <!-- Stok durumu önizleme -->
+                                    <div class="col-12">
+                                        <div id="stockPreview" style="padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; font-size:13px;">
+                                            <i class="bi bi-info-circle text-muted me-1"></i>
+                                            Stok durumu otomatik hesaplanır: Stok > Min → 🟢 Yeterli, Stok = Min → 🟡 Az Stok, Stok &lt; Min → 🔴 Kritik Stok
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Açıklama -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-card-text"></i> Diğer Bilgiler
+                                </div>
+                                <div>
+                                    <label class="efbis-label">Ürün Açıklaması</label>
+                                    <textarea id="description" class="efbis-textarea"
+                                              placeholder="Ürün hakkında detaylı açıklama yazın..."
+                                              maxlength="2000" rows="5"></textarea>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>İptal
+                </button>
+                <button type="button" class="btn-efbis-primary" id="btnSaveProduct" onclick="saveProduct()">
+                    <span id="saveBtnIcon"><i class="bi bi-check-lg me-1"></i></span>
+                    <span id="saveBtnText">Kaydet</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- DETAIL MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalLabel">
+                    <i class="bi bi-eye"></i> Ürün Detayı
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body" id="detailBody">
+                <div class="text-center py-4">
+                    <div class="spinner-efbis mx-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRM MODAL -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="confirm-icon"><i class="bi bi-trash3"></i></div>
+                <h6 class="fw-700 mb-2">Ürünü Sil</h6>
+                <p class="text-muted mb-0" style="font-size:13.5px;">
+                    <strong id="deleteProductName"></strong> ürününü silmek istediğinizden emin misiniz?
+                    Bu işlem geri alınamaz.
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn btn-danger fw-600" id="btnConfirmDelete" onclick="confirmDelete()">
+                    <i class="bi bi-trash3 me-1"></i>Evet, Sil
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- BARKOD ETİKETİ VE YAZDIRMA MODALI -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="productBarcodeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="bi bi-upc-scan text-warning me-2"></i> Ürün Barkod Etiketi Basımı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center bg-light">
+                <div class="border rounded-3 p-4 bg-white shadow-sm d-inline-block text-center" id="barcodePrintArea" style="width:320px;">
+                    <div class="fw-bold text-dark mb-1 text-truncate" id="barcodeModalProdName" style="font-size:16px;">—</div>
+                    <div class="small text-muted font-monospace mb-2" id="barcodeModalProdCode">KOD: —</div>
+                    
+                    <div class="my-3 py-2 px-3 border border-dark rounded bg-light font-monospace d-flex justify-content-center align-items-center flex-column">
+                        <i class="bi bi-upc text-dark" style="font-size:72px;line-height:1;letter-spacing:-2px;"></i>
+                        <span class="fw-bold font-monospace mt-1" id="barcodeModalBarcodeVal" style="font-size:13px;letter-spacing:3px;">8690000000000</span>
+                    </div>
+
+                    <div class="fs-4 fw-bold text-success font-monospace" id="barcodeModalPrice">0,00 ₺</div>
+                    <small class="text-muted" style="font-size:10px;">KDV Dahil Perakende Satış Fiyatı</small>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top justify-content-between">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-warning fw-bold px-4" onclick="printProductBarcodeLabel()">
+                    <i class="bi bi-printer me-1"></i> Etiketi Yazdır (Termal/A4)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/products.js" asp-append-version="true"></script>
+}

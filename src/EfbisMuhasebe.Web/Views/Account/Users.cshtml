@@ -1,0 +1,359 @@
+@{
+    ViewData["Title"] = "Şirket Kullanıcıları & Ekip Yetki Matrixi";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item active">Kullanıcı Yönetimi</li>
+}
+
+@Html.AntiForgeryToken()
+
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title"><i class="bi bi-shield-lock me-2 text-primary"></i>Şirket Kullanıcıları & Yetki Yönetimi</h1>
+        <p class="page-subtitle">Her kullanıcının kendi e-postası ve şifresi vardır. Şirket sahibi olarak kasiyer ve muhasebecilerinizin hangi modüllere erişebileceğini tik atarak özelleştirin.</p>
+    </div>
+    <button class="btn btn-primary fw-bold px-4" onclick="openCreateUserModal()">
+        <i class="bi bi-person-plus me-1"></i> Yeni Kullanıcı Ekle
+    </button>
+</div>
+
+<div class="efbis-card p-4">
+    <div class="table-responsive">
+        <table class="efbis-table align-middle" id="teamUsersTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>Kullanıcı</th>
+                    <th>Unvan</th>
+                    <th>Telefon</th>
+                    <th>Yetki Rolü</th>
+                    <th>Erişebildiği Modüller</th>
+                    <th>Son Giriş</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="teamUsersBody">
+                <tr><td colspan="8" class="text-center py-4 text-muted">Kullanıcılar yükleniyor...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- YENİ KULLANICI EKLE MODALI -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="bi bi-person-plus text-warning me-2"></i> Şirket İçi Yeni Kullanıcı Hesabı Ekle
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <form id="createUserForm" onsubmit="saveTeamUser(event)">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Ad Soyad <span class="text-danger">*</span></label>
+                            <input type="text" id="newProfFullName" class="efbis-input" placeholder="Örn: Ahmet Yılmaz" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">E-Posta Adresi (Giriş Key'i) <span class="text-danger">*</span></label>
+                            <input type="email" id="newProfEmail" class="efbis-input" placeholder="ahmet@sirketiniz.com" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Başlangıç Şifresi <span class="text-danger">*</span></label>
+                            <input type="password" id="newProfPassword" class="efbis-input" placeholder="En az 6 karakter" required minlength="6" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Yetki Rolü <span class="text-danger">*</span></label>
+                            <select id="newProfRole" class="efbis-select" required>
+                                <option value="1">👔 Şirket Yöneticisi (Admin)</option>
+                                <option value="3">🏢 Mağaza / Şube Müdürü</option>
+                                <option value="4">📊 Kıdemli Muhasebeci</option>
+                                <option value="5" selected>🧑‍💼 Şirket Personeli / Kasiyer</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Unvan / Görev</label>
+                            <input type="text" id="newProfTitle" class="efbis-input" placeholder="Örn: Kasiyer / Ön Muhasebe" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Telefon Numarası</label>
+                            <input type="text" id="newProfPhone" class="efbis-input" placeholder="0532 000 0000" />
+                        </div>
+
+                        <!-- MODÜL ERİŞİM İZİNLERİ KUTUCUKLARI -->
+                        <div class="col-12 border-top pt-3 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="efbis-label fw-bold text-dark mb-0">
+                                    <i class="bi bi-ui-checks me-1 text-primary"></i> Modül & Kategori Erişim İzinleri (Tıklayıp Seçiniz)
+                                </label>
+                                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" onclick="toggleAllModalCheckboxes('createUserModal')">
+                                    ☑️ Tümünü Seç / Kaldır
+                                </button>
+                            </div>
+                            <p class="text-muted small mb-3">Tiki koyulan kategorilere kullanıcının erişim yetkisi açılır, tiki kaldırılan kategoriler gizlenir ve engellenir.</p>
+
+                            <div class="row g-2">
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Products" id="c_Products" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Products">📦 Tüm Ürünler</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="SalesProducts" id="c_SalesProducts" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_SalesProducts">🏷️ Satıştaki Ürünler</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Pos" id="c_Pos" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Pos">⚡ Hızlı Satış (POS)</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Categories" id="c_Categories" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Categories">📂 Kategoriler</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="StockTransactions" id="c_StockTransactions" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_StockTransactions">📊 Stok Hareketleri</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Warehouses" id="c_Warehouses" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Warehouses">🏭 Depolar</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Invoices" id="c_Invoices" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Invoices">🧾 Faturalar</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="CashAccounts" id="c_CashAccounts" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_CashAccounts">💵 Kasa & Banka</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="IncomeExpenses" id="c_IncomeExpenses" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_IncomeExpenses">📈 Gelir & Gider</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Employees" id="c_Employees" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Employees">👥 Personeller</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="SalaryPayments" id="c_SalaryPayments" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_SalaryPayments">💰 Maaş & Bordro</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Shifts" id="c_Shifts" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Shifts">📅 Vardiya Takip</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Reports" id="c_Reports" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Reports">📊 Raporlar & Analiz</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Customers" id="c_Customers" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Customers">🤝 Müşteriler</label></div></div>
+                                <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input create-perm-cb" type="checkbox" value="Users" id="c_Users" checked><label class="form-check-label small fw-600 cursor-pointer" for="c_Users">🔒 Ekip Yönetimi</label></div></div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 text-end pt-3">
+                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">İptal</button>
+                            <button type="submit" class="btn btn-primary fw-bold px-4">
+                                <i class="bi bi-person-check me-1"></i> Kullanıcıyı ve İzinleri Kaydet
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- ERİŞİM İZİNLERİNİ DÜZENLE MODALI -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="editPermissionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white py-3 px-4">
+                <h5 class="modal-title fw-bold text-white mb-0" id="editPermModalTitle">
+                    <i class="bi bi-sliders me-2"></i> Kullanıcı Modül Erişim İzinleri
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <input type="hidden" id="editPermUserId" value="0" />
+                
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="efbis-label fw-bold text-dark mb-0">
+                        <i class="bi bi-ui-checks me-1 text-primary"></i> Modül Kutucukları (Açmak için tik atın, kapatmak için tiki kaldırın)
+                    </label>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold" onclick="toggleAllModalCheckboxes('editPermissionsModal')">
+                        ☑️ Tümünü Seç / Kaldır
+                    </button>
+                </div>
+
+                <div class="row g-2 mt-2">
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Products" id="ep_Products"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Products">📦 Tüm Ürünler</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="SalesProducts" id="ep_SalesProducts"><label class="form-check-label small fw-600 cursor-pointer" for="ep_SalesProducts">🏷️ Satıştaki Ürünler</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Pos" id="ep_Pos"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Pos">⚡ Hızlı Satış (POS)</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Categories" id="ep_Categories"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Categories">📂 Kategoriler</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="StockTransactions" id="ep_StockTransactions"><label class="form-check-label small fw-600 cursor-pointer" for="ep_StockTransactions">📊 Stok Hareketleri</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Warehouses" id="ep_Warehouses"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Warehouses">🏭 Depolar</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Invoices" id="ep_Invoices"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Invoices">🧾 Faturalar</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="CashAccounts" id="ep_CashAccounts"><label class="form-check-label small fw-600 cursor-pointer" for="ep_CashAccounts">💵 Kasa & Banka</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="IncomeExpenses" id="ep_IncomeExpenses"><label class="form-check-label small fw-600 cursor-pointer" for="ep_IncomeExpenses">📈 Gelir & Gider</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Employees" id="ep_Employees"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Employees">👥 Personeller</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="SalaryPayments" id="ep_SalaryPayments"><label class="form-check-label small fw-600 cursor-pointer" for="ep_SalaryPayments">💰 Maaş & Bordro</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Shifts" id="ep_Shifts"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Shifts">📅 Vardiya Takip</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Reports" id="ep_Reports"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Reports">📊 Raporlar & Analiz</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Customers" id="ep_Customers"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Customers">🤝 Müşteriler</label></div></div>
+                    <div class="col-6 col-md-4"><div class="form-check p-2 bg-white rounded border"><input class="form-check-input edit-perm-cb" type="checkbox" value="Users" id="ep_Users"><label class="form-check-label small fw-600 cursor-pointer" for="ep_Users">🔒 Ekip Yönetimi</label></div></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-success fw-bold px-4" onclick="savePermissionsUpdate()">
+                    <i class="bi bi-check-circle me-1"></i> İzin Değişikliklerini Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let cachedTeamUsers = [];
+
+        document.addEventListener('DOMContentLoaded', loadTeamUsers);
+
+        async function loadTeamUsers() {
+            try {
+                const users = await efbisAjax.get('/api/Account/team-users');
+                cachedTeamUsers = users || [];
+                const tbody = document.getElementById('teamUsersBody');
+                if (!tbody) return;
+
+                if (!users || users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Kayıtlı kullanıcı bulunamadı.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(u => {
+                    const id = u.id || u.Id;
+                    const name = u.fullName || u.FullName;
+                    const email = u.email || u.Email;
+                    const roleText = u.roleText || u.RoleText;
+                    const title = u.title || u.Title || '—';
+                    const phone = u.phoneNumber || u.PhoneNumber || '—';
+                    const lastLogin = u.formattedLastLogin || u.FormattedLastLogin || '—';
+                    const isActive = u.isActive ?? u.IsActive ?? true;
+                    const allowedModules = u.allowedModules || u.AllowedModules || '';
+
+                    const moduleCount = allowedModules.split(',').filter(x => x.trim().length > 0).length;
+
+                    return `
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark">${escHtml(name)}</div>
+                            <code class="text-muted small">${escHtml(email)}</code>
+                        </td>
+                        <td>${escHtml(title)}</td>
+                        <td>${escHtml(phone)}</td>
+                        <td><span class="badge bg-primary fs-6 px-2.5 py-1">${escHtml(roleText)}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info fw-bold py-0 px-2" onclick="openPermissionsModal(${id})" title="İzin Kutusunu Aç">
+                                <i class="bi bi-ui-checks me-1"></i> ${moduleCount} Modül Açık 🔑
+                            </button>
+                        </td>
+                        <td><span class="badge bg-light text-dark border font-monospace" style="font-size:12px;"><i class="bi bi-clock-history text-primary me-1"></i>${lastLogin}</span></td>
+                        <td><span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">${isActive ? 'Aktif' : 'Pasif'}</span></td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="openPermissionsModal(${id})" title="Kategori İzinlerini Düzenle">
+                                    <i class="bi bi-sliders"></i> Yetkiler
+                                </button>
+                                <button class="btn ${isActive ? 'btn-outline-danger' : 'btn-outline-success'}" onclick="toggleUserStatus(${id})" title="Hesabı Pasife/Aktife Al">
+                                    <i class="bi ${isActive ? 'bi-person-x' : 'bi-person-check'}"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openCreateUserModal() {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('createUserModal')).show();
+        }
+
+        function openPermissionsModal(userId) {
+            const user = cachedTeamUsers.find(u => (u.id || u.Id) === userId);
+            if (!user) return;
+
+            document.getElementById('editPermUserId').value = userId;
+            document.getElementById('editPermModalTitle').innerHTML = `<i class="bi bi-sliders me-2"></i> ${escHtml(user.fullName || user.FullName)} - Modül Erişim İzinleri`;
+
+            const allowedModules = (user.allowedModules || user.AllowedModules || '').split(',').map(x => x.trim());
+            const checkBoxes = document.querySelectorAll('.edit-perm-cb');
+
+            checkBoxes.forEach(cb => {
+                cb.checked = allowedModules.includes(cb.value);
+            });
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editPermissionsModal')).show();
+        }
+
+        function toggleAllModalCheckboxes(modalId) {
+            const checkBoxes = document.querySelectorAll(`#${modalId} input[type="checkbox"]`);
+            if (checkBoxes.length === 0) return;
+            const anyUnchecked = Array.from(checkBoxes).some(cb => !cb.checked);
+            checkBoxes.forEach(cb => cb.checked = anyUnchecked);
+        }
+
+        async function saveTeamUser(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('newProfFullName').value.trim();
+            const email = document.getElementById('newProfEmail').value.trim();
+            const password = document.getElementById('newProfPassword').value;
+            const role = parseInt(document.getElementById('newProfRole').value);
+            const title = document.getElementById('newProfTitle').value.trim();
+            const phoneNumber = document.getElementById('newProfPhone').value.trim();
+
+            const createCBs = document.querySelectorAll('.create-perm-cb:checked');
+            const allowedModules = Array.from(createCBs).map(cb => cb.value).join(',');
+
+            try {
+                const res = await efbisAjax.post('/api/Account/create-team-user', {
+                    FullName: fullName,
+                    Email: email,
+                    Password: password,
+                    Role: role,
+                    Title: title,
+                    PhoneNumber: phoneNumber,
+                    AllowedModules: allowedModules,
+                    IsActive: true
+                });
+
+                if (res.success) {
+                    showToast(res.message || 'Kullanıcı hesabı oluşturuldu!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('createUserModal'))?.hide();
+                    document.getElementById('createUserForm').reset();
+                    loadTeamUsers();
+                } else {
+                    showToast(res.message || 'Kullanıcı oluşturulamadı.', 'error');
+                }
+            } catch (err) {
+                showToast('Kullanıcı eklenirken bir hata oluştu.', 'error');
+            }
+        }
+
+        async function savePermissionsUpdate() {
+            const userId = parseInt(document.getElementById('editPermUserId').value);
+            if (!userId) return;
+
+            const editCBs = document.querySelectorAll('.edit-perm-cb:checked');
+            const allowedModules = Array.from(editCBs).map(cb => cb.value).join(',');
+
+            try {
+                const res = await efbisAjax.post('/api/Account/update-team-user-permissions', {
+                    UserId: userId,
+                    AllowedModules: allowedModules
+                });
+
+                if (res.success) {
+                    showToast(res.message || 'Erişim izinleri güncellendi!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editPermissionsModal'))?.hide();
+                    loadTeamUsers();
+                } else {
+                    showToast(res.message || 'Hata oluştu.', 'error');
+                }
+            } catch (e) {
+                showToast('İzinler kaydedilirken sunucu hatası oluştu.', 'error');
+            }
+        }
+
+        async function toggleUserStatus(id) {
+            if (!confirm('Kullanıcının erişim durumunu değiştirmek istediğinize emin misiniz?')) return;
+            try {
+                const res = await efbisAjax.post(`/api/Account/toggle-team-user-status/${id}`, {});
+                if (res.success) {
+                    showToast(res.message || 'Kullanıcı durumu güncellendi.', 'success');
+                    loadTeamUsers();
+                } else {
+                    showToast(res.message || 'Hata oluştu.', 'error');
+                }
+            } catch (e) {
+                showToast('İşlem başarısız.', 'error');
+            }
+        }
+
+        function escHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+}

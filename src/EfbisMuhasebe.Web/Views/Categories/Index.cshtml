@@ -1,0 +1,161 @@
+@{
+    ViewData["Title"] = "Kategoriler";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Products">Ürün Yönetimi</a></li>
+    <li class="breadcrumb-item active">Kategoriler</li>
+}
+
+@Html.AntiForgeryToken()
+
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-tags me-2 text-primary"></i>Kategori Yönetimi
+        </h1>
+        <p class="page-subtitle">Ürün kategorilerini oluşturun, düzenleyin ve hiyerarşik yapıyı yönetin.</p>
+    </div>
+    <button class="btn-efbis-primary" onclick="openCreateCategoryModal()">
+        <i class="bi bi-plus-lg me-1"></i>Yeni Kategori Ekle
+    </button>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-tags"></i></div>
+            <div>
+                <div class="stat-value text-purple" id="statCategoryCount">—</div>
+                <div class="stat-label">Toplam Kategori</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-diagram-3"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statParentCount">—</div>
+                <div class="stat-label">Ana Kategori Sayısı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-box-seam"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statTotalCategoryProducts">—</div>
+                <div class="stat-label">Kategorilerdeki Toplam Ürün</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search & Table Card -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex justify-content-between align-items-center">
+        <div class="efbis-card-title mb-0">
+            <i class="bi bi-list-nested me-1"></i>
+            Kategori Listesi
+            <span class="badge bg-secondary fw-normal ms-1" id="categoryCountBadge">0 kategori</span>
+        </div>
+        <div class="search-box" style="max-width:320px; width: 100%;">
+            <i class="bi bi-search"></i>
+            <input type="text" id="catSearchInput" class="search-input" placeholder="Kategori ara (isim veya açıklama)..." oninput="filterCategoryTable()" />
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="efbis-table table-hover">
+            <thead>
+                <tr>
+                    <th>Kategori Adı</th>
+                    <th>Açıklama</th>
+                    <th>Üst Kategori</th>
+                    <th style="text-align:center;">Bağlı Ürün</th>
+                    <th>Oluşturma Tarihi</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="categoriesBody">
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Kategoriler Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE / EDIT MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="categoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="catModalTitle"><i class="bi bi-tags me-2"></i>Yeni Kategori Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="categoryForm">
+                    <input type="hidden" id="catId" value="0" />
+                    <div class="mb-3">
+                        <label class="efbis-label">Kategori Adı <span class="required">*</span></label>
+                        <input type="text" id="catName" class="efbis-input" placeholder="Örn: Elektronik, Giyim vs." maxlength="100" required />
+                        <div class="invalid-feedback d-block text-danger" id="err-catName" style="font-size:12px;"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="efbis-label">Üst Kategori <span class="text-muted" style="font-size:11px;">(Opsiyonel)</span></label>
+                        <select id="catParentId" class="efbis-select">
+                            <option value="">-- Ana Kategori (Üst Kategori Yok) --</option>
+                        </select>
+                        <div class="form-text mt-1" style="font-size: 11px;">
+                            Eğer bu bir alt kategoriyse (Örn: 'Laptop' kategorisi için üst kategori 'Elektronik' olabilir) ilgili üst kategoriyi seçiniz.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama</label>
+                        <textarea id="catDescription" class="efbis-textarea" placeholder="Kategori açıklaması..." maxlength="500" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn-efbis-primary" onclick="saveCategory()" id="btnSaveCategory">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal fade modal-efbis" id="deleteCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="confirm-icon"><i class="bi bi-trash3"></i></div>
+                <h6 class="fw-700 mb-2">Kategoriyi Sil</h6>
+                <p class="text-muted mb-0" style="font-size:13.5px;">
+                    <strong id="deleteCatName"></strong> kategorisini silmek istediğinizden emin misiniz?
+                </p>
+                <div class="alert alert-warning mt-3 mb-0" style="font-size: 11px; padding: 6px;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>İçerisinde ürün bulunan kategoriler silinemez.
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn btn-danger fw-600" onclick="confirmDeleteCategory()">Evet, Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/categories.js" asp-append-version="true"></script>
+}

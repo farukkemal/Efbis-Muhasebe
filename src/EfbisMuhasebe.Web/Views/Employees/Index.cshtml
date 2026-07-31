@@ -1,0 +1,267 @@
+@{
+    ViewData["Title"] = "Personel Yönetimi";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item active">Personel Yönetimi</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-person-vcard me-2 text-primary"></i>Personel Yönetimi
+        </h1>
+        <p class="page-subtitle">
+            Şirket çalışanlarını, departman ve maaş yükünü yönetin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-export-excel" onclick="exportTableToCSV('employeesTable', 'personel_listesi.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('employeesTable', 'Personel Listesi Raporu')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreateModal()">
+            <i class="bi bi-person-plus me-1"></i>Yeni Personel Ekle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #6366f1;">
+            <div class="stat-icon purple"><i class="bi bi-people-fill"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statTotal">0</div>
+                <div class="stat-label">Toplam Çalışan</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statActive">0</div>
+                <div class="stat-label">Aktif Personel</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #0891b2;">
+            <div class="stat-icon" style="background:#ecfeff;color:#0891b2;"><i class="bi bi-currency-lira"></i></div>
+            <div>
+                <div class="stat-value text-info" id="statMonthlySalary">0,00 ₺</div>
+                <div class="stat-label">Aylık Maaş Yükü</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+            <div class="stat-icon orange"><i class="bi bi-diagram-3-fill"></i></div>
+            <div>
+                <div class="stat-value text-warning" id="statDepartmentStats" style="font-size:15px;font-weight:700;">8 Depo | 4 Kasiyer</div>
+                <div class="stat-label">Departman Dağılımı</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Card ──────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="efbis-card-title">
+            <i class="bi bi-person-lines-fill text-primary"></i>
+            Personel Kadrosu
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 personel</span>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Kod, ad, soyad veya unvan ara..." oninput="debounceSearch()" />
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="filter-select w-100" id="departmentFilter" onchange="loadData(1)">
+                    <option value="">Tüm Departmanlar</option>
+                    <option value="1">🏬 Depo & Lojistik (8)</option>
+                    <option value="2">💵 Kasa Birimi (4)</option>
+                    <option value="3">🏷️ Reyon & Satış Uzmanı (4)</option>
+                    <option value="4">🎧 Müşteri Danışmanı (4)</option>
+                    <option value="5">👔 Yönetim & İdari</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="statusFilter" onchange="loadData(1)">
+                    <option value="">Tüm Durumlar</option>
+                    <option value="1">🟢 Aktif</option>
+                    <option value="2">🟡 İzinli</option>
+                    <option value="3">⚪ Ayrıldı</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2 ms-auto text-end">
+                <select class="filter-select" id="pageSizeSelect" onchange="loadData(1)">
+                    <option value="10">10 / Sayfa</option>
+                    <option value="25" selected>25 / Sayfa</option>
+                    <option value="50">50 / Sayfa</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="employeesTable">
+            <thead>
+                <tr>
+                    <th>Personel Kodu</th>
+                    <th>Adı Soyadı</th>
+                    <th>Departman</th>
+                    <th>Unvan / Görev</th>
+                    <th>Telefon & E-posta</th>
+                    <th>İlgili Depo</th>
+                    <th style="text-align:right;">Net Maaş</th>
+                    <th>İşe Giriş</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="10" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE / EDIT MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="employeeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#4f46e5,#6366f1);">
+                <h5 class="modal-title text-white" id="employeeModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Yeni Personel Ekle
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm" onsubmit="event.preventDefault(); saveEmployee();">
+                    <input type="hidden" id="employeeId" />
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Personel Kodu <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="employeeCode" required maxlength="20" placeholder="PRS-MMP-001" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Adı <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="firstName" required maxlength="100" placeholder="Ahmet" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Soyadı <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="lastName" required maxlength="100" placeholder="Yılmaz" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">TC Kimlik No</label>
+                            <input type="text" class="efbis-input" id="tckn" maxlength="11" placeholder="12345678901" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Departman <span class="required">*</span></label>
+                            <select class="efbis-select" id="department" required>
+                                <option value="1">🏬 Depo & Lojistik</option>
+                                <option value="2">💵 Kasa Birimi</option>
+                                <option value="3" selected>🏷️ Reyon & Satış Uzmanı</option>
+                                <option value="4">🎧 Müşteri Danışmanı</option>
+                                <option value="5">👔 Yönetim & İdari</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Unvan / Görev <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="title" required maxlength="150" placeholder="TV Reyon Sorumlusu" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Telefon</label>
+                            <input type="text" class="efbis-input" id="phone" maxlength="20" placeholder="0532 123 4567" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">E-posta</label>
+                            <input type="email" class="efbis-input" id="email" maxlength="150" placeholder="ahmet.yilmaz@firma.com" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">İl / Şehir</label>
+                            <input type="text" class="efbis-input" id="city" value="İstanbul" maxlength="100" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Net Aylık Maaş (₺)</label>
+                            <input type="number" class="efbis-input" id="salary" value="28500" min="0" step="500" style="text-align:right;" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">İşe Giriş Tarihi</label>
+                            <input type="date" class="efbis-input" id="hireDate" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">İlgili Depo (Depo Personeli için)</label>
+                            <select class="efbis-select" id="warehouseId">
+                                <option value="">-- Depo Yok / Bağımsız --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Çalışma Durumu</label>
+                            <select class="efbis-select" id="status">
+                                <option value="1" selected>🟢 Aktif Çalışan</option>
+                                <option value="2">🟡 İzinli</option>
+                                <option value="3">⚪ İşten Ayrıldı</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="saveEmployee()">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/employees.js" asp-append-version="true"></script>
+}

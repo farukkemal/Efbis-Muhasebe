@@ -1,0 +1,349 @@
+@{
+    ViewData["Title"] = "Fatura Yönetimi";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Customers">Satın Alma & Satış</a></li>
+    <li class="breadcrumb-item active">Faturalar</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title" id="invoicePageTitle">
+            <i class="bi bi-file-earmark-text me-2 text-primary"></i>Fatura Yönetimi
+        </h1>
+        <p class="page-subtitle" id="invoicePageSubtitle">
+            Satış ve alış faturalarınızı oluşturun, onaylayın, KDV ve iskonto toplamlarını anlık takip edin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-export-excel" onclick="exportTableToCSV('invoicesTable', 'faturalar_listesi.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('invoicesTable', 'Fatura Yönetimi Raporu')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreateModal()">
+            <i class="bi bi-plus-lg me-1"></i><span id="btnCreateText">Yeni Fatura Oluştur</span>
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-bag-check"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statSalesAmount">0,00 ₺</div>
+                <div class="stat-label">Satış Faturası Toplamı (<span id="statSalesCount">0</span> adet)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #0284c7;">
+            <div class="stat-icon" style="background:#e0f2fe;color:#0284c7;"><i class="bi bi-cart-check"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statPurchaseAmount">0,00 ₺</div>
+                <div class="stat-label">Alış Faturası Toplamı (<span id="statPurchaseCount">0</span> adet)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #64748b;">
+            <div class="stat-icon" style="background:#f1f5f9;color:#64748b;"><i class="bi bi-pencil-square"></i></div>
+            <div>
+                <div class="stat-value text-secondary" id="statDraftCount">0</div>
+                <div class="stat-label">Taslak (Onay Bekleyen) Fatura</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
+            <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="statOverdueCount">0</div>
+                <div class="stat-label">Vadesi Geçen Ödeme/Tahsilat</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Card ──────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="efbis-card-title">
+            <i class="bi bi-journal-text text-primary"></i>
+            Fatura Kayıtları
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 fatura</span>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Fatura no veya cari ara..." oninput="debounceSearch()" />
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="typeFilter" onchange="loadData(1)">
+                    <option value="">Tüm Fatura Tipleri</option>
+                    <option value="1">🟢 Satış Faturası</option>
+                    <option value="2">🔵 Alış Faturası</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="statusFilter" onchange="loadData(1)">
+                    <option value="">Tüm Durumlar</option>
+                    <option value="1">⚪ Taslak</option>
+                    <option value="2">🟢 Onaylı</option>
+                    <option value="3">🔴 İptal</option>
+                    <option value="4">🔵 Ödendi</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-flex align-items-center gap-2">
+                <span style="font-size:12.5px;color:#64748b;font-weight:500;white-space:nowrap;">Tarih:</span>
+                <input type="date" id="startDateFilter" class="efbis-input" onchange="loadData(1)" style="padding:6px 10px;font-size:12.5px;" />
+                <span style="color:#94a3b8;">—</span>
+                <input type="date" id="endDateFilter" class="efbis-input" onchange="loadData(1)" style="padding:6px 10px;font-size:12.5px;" />
+            </div>
+            <div class="col-6 col-md-2 ms-auto text-end">
+                <select class="filter-select" id="pageSizeSelect" onchange="loadData(1)">
+                    <option value="10">10 / Sayfa</option>
+                    <option value="25">25 / Sayfa</option>
+                    <option value="50">50 / Sayfa</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="invoicesTable">
+            <thead>
+                <tr>
+                    <th>Fatura No</th>
+                    <th>Tip</th>
+                    <th>Cari Ünvan</th>
+                    <th>Tarih</th>
+                    <th>Vade Tarihi</th>
+                    <th style="text-align:right;">Ara Toplam</th>
+                    <th style="text-align:right;">KDV Toplam</th>
+                    <th style="text-align:right;">Genel Toplam</th>
+                    <th style="text-align:center;">Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="dataTableBody">
+                <tr>
+                    <td colspan="10" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="createModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0284c7,#0369a1);">
+                <h5 class="modal-title text-white" id="createModalTitle"><i class="bi bi-file-earmark-plus me-2"></i>Yeni Fatura Oluştur</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createForm" onsubmit="event.preventDefault(); saveInvoice();">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label class="efbis-label">Fatura No <span class="required">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="efbis-input" id="invoiceNumber" placeholder="FAT-2026-001" required style="border-top-right-radius:0;border-bottom-right-radius:0;" />
+                                <button class="btn btn-outline-secondary" type="button" onclick="generateAutoInvoiceNumber()" title="Otomatik Numara Üret" style="border-top-left-radius:0;border-bottom-left-radius:0;">
+                                    <i class="bi bi-magic"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Fatura Tipi <span class="required">*</span></label>
+                            <select class="efbis-select" id="invoiceType" required onchange="generateAutoInvoiceNumber()">
+                                <option value="1">🟢 Satış Faturası</option>
+                                <option value="2">🔵 Alış Faturası</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Müşteri / Tedarikçi <span class="required">*</span></label>
+                            <select class="efbis-select" id="customerId" required>
+                                <option value="">-- Cari Seçiniz --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Fatura Tarihi <span class="required">*</span></label>
+                            <input type="date" class="efbis-input" id="invoiceDate" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">E-Fatura Senaryosu</label>
+                            <select class="efbis-select" id="invoiceScenario">
+                                <option value="TICARI">🏢 TİCARİ FATURA (GİB)</option>
+                                <option value="TEMEL">🏛️ TEMEL FATURA (GİB)</option>
+                                <option value="EARSIV">📄 E-ARŞİV FATURA</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">KDV Tevkifat Oranı</label>
+                            <select class="efbis-select" id="withholdingRate" onchange="calculateTotals()">
+                                <option value="0">Tevkifat Yok (0/10)</option>
+                                <option value="2">2/10 Tevkifat Uygula (%20)</option>
+                                <option value="5">5/10 Tevkifat Uygula (%50)</option>
+                                <option value="9">9/10 Tevkifat Uygula (%90)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Açıklama / Not</label>
+                            <input type="text" class="efbis-input" id="description" placeholder="Fatura açıklaması veya sipariş referansı..." />
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="form-section-title mb-0"><i class="bi bi-list-stars text-primary me-1"></i> Fatura Kalemleri</div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addInvoiceItem()">
+                            <i class="bi bi-plus-circle me-1"></i>Satır Ekle
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-3">
+                        <table class="efbis-table table-bordered" id="itemsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:32%;">Ürün</th>
+                                    <th style="width:10%;text-align:right;">Miktar</th>
+                                    <th style="width:15%;text-align:right;">Birim Fiyat (₺)</th>
+                                    <th style="width:10%;text-align:right;">İskonto %</th>
+                                    <th style="width:10%;text-align:right;">KDV %</th>
+                                    <th style="width:11%;text-align:right;">KDV Tutarı</th>
+                                    <th style="width:12%;text-align:right;">Satır Toplamı</th>
+                                    <th style="width:5%;text-align:center;">Sil</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsTableBody">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="row justify-content-end">
+                        <div class="col-md-5">
+                            <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:13px;color:#64748b;">
+                                    <span>Ara Toplam:</span>
+                                    <strong id="summarySubTotal">0,00 ₺</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size:13px;color:#64748b;">
+                                    <span>İskonto Toplamı:</span>
+                                    <strong id="summaryDiscount" class="text-danger">0,00 ₺</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1" style="font-size:13px;color:#64748b;">
+                                    <span>KDV Toplamı:</span>
+                                    <strong id="summaryVat">0,00 ₺</strong>
+                                </div>
+                                <div class="d-flex justify-content-between pt-2 border-top" style="font-size:15px;color:#0f172a;">
+                                    <strong>Genel Toplam:</strong>
+                                    <strong id="summaryGrandTotal" style="color:#0284c7;font-size:17px;">0,00 ₺</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="saveInvoice()">
+                    <i class="bi bi-check-lg me-1"></i>Faturayı Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- DETAIL MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0f172a,#1e293b);">
+                <h5 class="modal-title text-white">
+                    <i class="bi bi-file-earmark-text me-2"></i>Fatura Detayı: <span id="detailInvoiceNumber" class="badge bg-primary text-white ms-2"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailModalBody">
+                <div class="text-center py-4"><div class="spinner-efbis mx-auto"></div></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-dark" onclick="openEInvoiceVisualModal()">
+                        <i class="bi bi-qr-code-scan me-1 text-warning"></i> Resmi GİB E-Fatura Görünümü
+                    </button>
+                    <button type="button" class="btn btn-success d-none" id="btnApprove" onclick="updateStatus(2)">
+                        <i class="bi bi-check-circle me-1"></i>Faturayı Onayla
+                    </button>
+                    <button type="button" class="btn btn-primary d-none" id="btnMarkPaid" onclick="updateStatus(4)">
+                        <i class="bi bi-cash-stack me-1"></i>Ödendi İşaretle
+                    </button>
+                    <button type="button" class="btn btn-danger d-none" id="btnCancel" onclick="updateStatus(3)">
+                        <i class="bi bi-x-circle me-1"></i>Faturayı İptal Et
+                    </button>
+                </div>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- GİB UBL-TR UYUMLU RESMİ E-FATURA GÖRSEL MODALI -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="eInvoiceVisualModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="bi bi-receipt text-warning me-2"></i> Resmi GİB UBL-TR E-Fatura Belge Görünümü
+                </h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="button" class="btn btn-sm btn-warning fw-bold px-3" onclick="printEInvoiceDocument()">
+                        <i class="bi bi-printer me-1"></i> Resmi Faturayı Yazdır
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-4 bg-light" id="eInvoicePrintArea">
+                <!-- Dynamic Official GİB E-Invoice Document Rendered via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/invoices.js" asp-append-version="true"></script>
+}

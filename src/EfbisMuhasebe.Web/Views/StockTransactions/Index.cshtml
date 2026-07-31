@@ -1,0 +1,270 @@
+@{
+    ViewData["Title"] = "Stok Hareketleri";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Products">Stok Yönetimi</a></li>
+    <li class="breadcrumb-item active">Stok Hareketleri</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-arrow-left-right me-2 text-primary"></i>Stok Hareketleri
+        </h1>
+        <p class="page-subtitle">
+            Ürün stok girişleri, çıkışları, depo transferleri, sayım farkları ve fire hareketlerini anlık takip edin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-export-excel" onclick="exportTableToCSV('transactionsTable', 'stok_hareketleri.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('transactionsTable', 'Stok Hareketleri Raporu')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreateModal()">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Stok Hareketi
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-box-arrow-in-down"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statTotalIn">0</div>
+                <div class="stat-label">Toplam Stok Girişi</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
+            <div class="stat-icon red"><i class="bi bi-box-arrow-up"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="statTotalOut">0</div>
+                <div class="stat-label">Toplam Stok Çıkışı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #06b6d4;">
+            <div class="stat-icon" style="background:#ecfeff;color:#0891b2;"><i class="bi bi-calendar-day"></i></div>
+            <div>
+                <div class="stat-value text-info" id="statTodayTx">0</div>
+                <div class="stat-label">Bugünkü Stok İşlemi</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #6366f1;">
+            <div class="stat-icon purple"><i class="bi bi-calendar-month"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statMonthlyTx">0</div>
+                <div class="stat-label">Aylık Stok İşlemi</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Card ──────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="efbis-card-title">
+            <i class="bi bi-list-ul text-primary"></i>
+            Stok İşlem Geçmişi
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 kayıt</span>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="İşlem no veya ürün ara..." oninput="debounceSearch()" />
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="typeFilter" onchange="loadData(1)">
+                    <option value="">Tüm İşlem Tipleri</option>
+                    <option value="1">🟢 Stok Girişi</option>
+                    <option value="2">🔴 Stok Çıkışı</option>
+                    <option value="3">🔵 Depo Transferi</option>
+                    <option value="4">🟠 Sayım Farkı</option>
+                    <option value="5">⚫ Fire</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-center gap-2">
+                <span style="font-size:12.5px;color:#64748b;font-weight:500;white-space:nowrap;">Tarih:</span>
+                <input type="date" id="startDateFilter" class="efbis-input" onchange="loadData(1)" style="padding:6px 10px;font-size:12.5px;" />
+                <span style="color:#94a3b8;">—</span>
+                <input type="date" id="endDateFilter" class="efbis-input" onchange="loadData(1)" style="padding:6px 10px;font-size:12.5px;" />
+            </div>
+            <div class="col-6 col-md-2 ms-auto text-end">
+                <select class="filter-select" id="pageSizeSelect" onchange="loadData(1)">
+                    <option value="10">10 / Sayfa</option>
+                    <option value="25">25 / Sayfa</option>
+                    <option value="50">50 / Sayfa</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>İşlem Kodu</th>
+                    <th>İşlem Tipi</th>
+                    <th>Ürün Adı & Kodu</th>
+                    <th>Depo</th>
+                    <th style="text-align:right;">Miktar</th>
+                    <th style="text-align:right;">Birim Fiyat</th>
+                    <th style="text-align:right;">Toplam Tutar</th>
+                    <th>Tarih</th>
+                    <th style="text-align:center;">Detay</th>
+                </tr>
+            </thead>
+            <tbody id="transactionsTableBody">
+                <tr>
+                    <td colspan="9" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="transactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">
+                <h5 class="modal-title text-white"><i class="bi bi-plus-circle me-2"></i>Yeni Stok Hareketi Ekle</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transactionForm" onsubmit="event.preventDefault(); saveTransaction();">
+                    <div class="p-3 mb-3 rounded border" style="background:#fff1f2;border-color:#fecdd3 !important;">
+                        <label class="efbis-label text-danger fw-bold mb-1">
+                            <i class="bi bi-receipt-cutoff me-1"></i>Ürünün Geldiğine Dair Fatura Seçimi <span class="badge bg-danger text-white ms-1">ZORUNLU KURAL</span>
+                        </label>
+                        <select class="efbis-select" id="InvoiceSelect" onchange="onInvoiceSelectChange(this)">
+                            <option value="">-- Kayıtlı Fatura Seçiniz --</option>
+                        </select>
+                        <div class="form-text text-danger" style="font-size:11.5px;font-weight:500;">
+                            ⚠️ KURAL: Ürünün depoya girişi için fatura kaydı zorunludur. Eğer fatura henüz sisteme girilmediyse stok girişi yapılamaz. Önce "Faturalar" modülünden faturayı kaydediniz.
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">İşlem Tipi <span class="required">*</span></label>
+                            <select class="efbis-select" id="TransactionType" name="TransactionType" required>
+                                <option value="1">🟢 Stok Girişi (Depoya Mal Girişi)</option>
+                                <option value="2">🔴 Stok Çıkışı (Depodan Mal Çıkışı)</option>
+                                <option value="3">🔵 Depo Transferi (Depolar Arası)</option>
+                                <option value="4">🟠 Sayım Farkı (Düzeltme)</option>
+                                <option value="5">⚫ Fire (Bozuk / Hasarlı / Çöp)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">İşlem Tarihi & Saat <span class="required">*</span></label>
+                            <input type="datetime-local" class="efbis-input" id="TransactionDate" name="TransactionDate" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Ürün <span class="required">*</span></label>
+                            <select class="efbis-select" id="ProductId" name="ProductId" required>
+                                <option value="">-- Ürün Seçiniz --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Depo</label>
+                            <select class="efbis-select" id="WarehouseId" name="WarehouseId">
+                                <option value="">-- Depo Seçiniz --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Miktar <span class="required">*</span></label>
+                            <input type="number" step="0.01" min="0.01" class="efbis-input" id="Quantity" name="Quantity" placeholder="1.00" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Birim Fiyat (₺)</label>
+                            <div class="input-group-price">
+                                <span class="currency-prefix">₺</span>
+                                <input type="number" step="0.01" min="0" class="efbis-input" id="UnitPrice" name="UnitPrice" placeholder="0.00" value="0.00" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Referans / Fatura / İrsaliye No</label>
+                        <input type="text" class="efbis-input" id="ReferenceNo" name="ReferenceNo" maxlength="50" placeholder="IRS-2026-001 / FAT-002" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama / Not</label>
+                        <textarea class="efbis-input" id="Description" name="Description" rows="2" placeholder="Stok hareketi açıklaması..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="saveTransaction()">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- DETAILS MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0284c7,#0369a1);">
+                <h5 class="modal-title text-white"><i class="bi bi-info-circle me-2"></i>Stok İşlem Detayı</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsContent">
+                <div class="text-center py-4"><div class="spinner-efbis mx-auto"></div></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/stockTransactions.js" asp-append-version="true"></script>
+}

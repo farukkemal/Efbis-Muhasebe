@@ -1,0 +1,149 @@
+@{
+    ViewData["Title"] = "Yeni Müşteri & Şirket Kurulum Portalı";
+    Layout = "_Layout";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Admin">Sistem Yönetimi</a></li>
+    <li class="breadcrumb-item active">Yeni Müşteri & Kurulum Portalı</li>
+}
+
+<div class="container-fluid p-0">
+    <div class="page-header d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h4 class="fw-bold text-dark mb-1">
+                <i class="bi bi-building-add text-primary me-2"></i>Yeni Müşteri & Şirket Kurulum Portalı
+            </h4>
+            <p class="text-muted small mb-0">Efbis Muhasebe yazılımını yeni bir müşterinize satarken bağımsız üyelik açın ve özel `TenantId` veri alanını anında aktifleştirin.</p>
+        </div>
+        <button class="btn btn-primary fw-bold px-3 py-2" onclick="openCreateTenantModal()">
+            <i class="bi bi-plus-circle me-1.5"></i>Yeni Müşteri Şirket Kaydı Ekle
+        </button>
+    </div>
+
+    <!-- ─── Registered Active Tenants Table ────────────────────────────────────── -->
+    <div class="efbis-card shadow-sm mb-4">
+        <div class="efbis-card-header d-flex justify-content-between align-items-center">
+            <div class="efbis-card-title">
+                <i class="bi bi-building-check text-success me-2"></i>Sistemdeki Kayıtlı Müşteri Şirketleri (Tenants)
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadTenants()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tenantsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tenant ID</th>
+                            <th>Şirket Kodu</th>
+                            <th>Şirket Adı / Ünvanı</th>
+                            <th>Sektör</th>
+                            <th>İletişim E-Posta</th>
+                            <th>Şehir</th>
+                            <th>Durum</th>
+                            <th>Kayıt Tarihi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenantsTbody">
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <span class="spinner-border spinner-border-sm me-2"></span>Şirketler yükleniyor...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YENİ MÜŞTERİ ŞİRKET KAYDI -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="createTenantModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-building-add me-2"></i>Yeni Müşteri Şirketi Kaydet & Aktif Et
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="createTenantForm">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Şirket / Müşteri Adı <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="tnCompanyName" placeholder="Örn: Hilton Taksim A.Ş." required />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Ticari Ünvan</label>
+                            <input type="text" class="efbis-input" id="tnTradeTitle" placeholder="Örn: Hilton Otelcilik ve Turizm Tic. A.Ş." />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Sektör / Faaliyet Alanı</label>
+                            <select class="efbis-select" id="tnSector">
+                                <option value="Lüks Otelcilik & Konaklama">Lüks Otelcilik & Konaklama</option>
+                                <option value="Elektronik & Teknoloji Perakende" selected>Elektronik & Teknoloji Perakende</option>
+                                <option value="Restoran & Gastronomi">Restoran & Gastronomi</option>
+                                <option value="İnşaat & Gayrimenkul">İnşaat & Gayrimenkul</option>
+                                <option value="Lojistik & Depolama">Lojistik & Depolama</option>
+                                <option value="Tekstil & Mağazacılık">Tekstil & Mağazacılık</option>
+                                <option value="Diğer Genel Ticaret">Diğer Genel Ticaret</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="efbis-label">Vergi Dairesi</label>
+                            <input type="text" class="efbis-input" id="tnTaxOffice" placeholder="Beyoğlu V.D." />
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="efbis-label">Vergi No</label>
+                            <input type="text" class="efbis-input" id="tnTaxNumber" placeholder="1234567890" maxlength="11" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Telefon</label>
+                            <input type="text" class="efbis-input" id="tnPhone" placeholder="0212 000 0000" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Şehir</label>
+                            <input type="text" class="efbis-input" id="tnCity" value="İstanbul" />
+                        </div>
+                        <div class="col-12">
+                            <label class="efbis-label">Şirket Adresi</label>
+                            <input type="text" class="efbis-input" id="tnAddress" placeholder="Merkez Mah. No:1" />
+                        </div>
+
+                        <div class="col-12 border-top pt-3 mt-4">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-badge text-primary me-2"></i>Müşteri Yetkili Hesabı (Tenant Admin)</h6>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="efbis-label">Yetkili Ad Soyad <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="tnAdminFullName" placeholder="Ahmet Yılmaz" required />
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="efbis-label">Yetkili Giriş E-Postası <span class="required">*</span></label>
+                            <input type="email" class="efbis-input" id="tnAdminEmail" placeholder="admin@musteri.com" required />
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="efbis-label">Giriş Şifresi <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="tnAdminPassword" value="Musteri123!" required />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary fw-bold px-4" onclick="submitCreateTenant()">
+                    <i class="bi bi-check2-circle me-1"></i>Müşteriyi Kaydet & Üyelik Aç
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tenantSetup.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "AktkEpqLxsg=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\simse\\Masaüstü\\Efbis Muhasebe\\EfbisMuhasebe\\src\\EfbisMuhasebe.Domain\\EfbisMuhasebe.Domain.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.18\\microsoft.netcore.app.ref.9.0.18.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.18\\microsoft.windowsdesktop.app.ref.9.0.18.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.18\\microsoft.aspnetcore.app.ref.9.0.18.nupkg.sha512"
+  ],
+  "logs": []
+}

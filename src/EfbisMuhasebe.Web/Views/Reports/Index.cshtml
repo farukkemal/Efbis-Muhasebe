@@ -1,0 +1,587 @@
+@{
+    ViewData["Title"] = "Raporlar";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item">Yönetim</li>
+    <li class="breadcrumb-item active">Raporlar</li>
+}
+
+<!-- Page Header -->
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-bar-chart-line me-2 text-primary"></i>Raporlar & Analiz
+        </h1>
+        <p class="page-subtitle">Stok değeri, cari hesap, satış ve kritik stok raporları.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn-export-excel" onclick="exportActiveReportTable()" title="Aktif tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printActiveReportTable()" title="Aktif raporu yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4" id="kpiCards">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-box-seam"></i></div>
+            <div>
+                <div class="stat-value" id="kpiTotalProducts">0</div>
+                <div class="stat-label">Toplam Ürün</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-cash-stack"></i></div>
+            <div>
+                <div class="stat-value text-success" id="kpiStockValue">0 ₺</div>
+                <div class="stat-label">Stok Değeri (Maliyet)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="kpiReceivables">0 ₺</div>
+                <div class="stat-label">Toplam Alacak</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="kpiCriticalStock">0</div>
+                <div class="stat-label">Kritik Stok</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Tabs -->
+<ul class="nav nav-tabs mb-0" id="reportTabs" role="tablist" style="border-bottom: 2px solid rgba(255,255,255,0.06);">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="incomeStatement-tab" data-bs-toggle="tab" data-bs-target="#incomeStatement" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Gelir Tablosu (TDHP)
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="vatReport-tab" data-bs-toggle="tab" data-bs-target="#vatReport" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-receipt-cutoff text-warning me-1"></i>KDV Özet & Beyanname
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="stockValue-tab" data-bs-toggle="tab" data-bs-target="#stockValue" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-archive me-1"></i>Stok Değer Raporu
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="customerBalance-tab" data-bs-toggle="tab" data-bs-target="#customerBalance" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-people me-1"></i>Cari Bakiye
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="customerLedger-tab" data-bs-toggle="tab" data-bs-target="#customerLedger" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-journal-text text-info me-1"></i>Cari Mutabakat Ekstresi
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="topSelling-tab" data-bs-toggle="tab" data-bs-target="#topSelling" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-trophy me-1"></i>En Çok Satılan
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="taxCalendar-tab" data-bs-toggle="tab" data-bs-target="#taxCalendar" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;" onclick="loadTaxCalendar()">
+            <i class="bi bi-calendar-check text-primary me-1"></i>Vergi Ödeme Takvimi
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="vatTracking-tab" data-bs-toggle="tab" data-bs-target="#vatTracking" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;" onclick="loadVatTracking()">
+            <i class="bi bi-cash-coin text-info me-1"></i>Aylık KDV Ödeme Takibi
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="trialBalance-tab" data-bs-toggle="tab" data-bs-target="#trialBalance" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;" onclick="loadTrialBalance()">
+            <i class="bi bi-card-checklist text-warning me-1"></i>Genel Geçici Mizan (TDHP)
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="balanceSheet-tab" data-bs-toggle="tab" data-bs-target="#balanceSheet" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;" onclick="loadBalanceSheet()">
+            <i class="bi bi-bank text-success me-1"></i>Özet Bilanço
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="criticalStock-tab" data-bs-toggle="tab" data-bs-target="#criticalStock" type="button" role="tab" style="color:#e2e8f0;font-size:13.5px;">
+            <i class="bi bi-exclamation-diamond me-1"></i>Kritik Stok
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="reportTabContent">
+    <!-- 📄 GELİR TABLOSU (TEK DÜZEN HESAP PLANI 6'LI HESAP GRUBU) -->
+    <div class="tab-pane fade show active" id="incomeStatement" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Resmi Gelir Tablosu (Tek Düzen Hesap Planı)</h5>
+                    <p class="text-muted small mb-0">600 Hasılat, 610 İndirimler, 621 SMM ve 770 Faaliyet Giderleri hesap kırılımları</p>
+                </div>
+                <button class="btn btn-sm btn-outline-success fw-bold px-3" onclick="openJournalVoucherModal('INCOME')">
+                    <i class="bi bi-journal-check me-1"></i> Mahsup Fişi (Yevmiye Kaydı) Oluştur
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>TDHP Hesap Kodu & Adı</th>
+                                    <th class="text-end">Tutar (₺)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="fw-bold bg-light">
+                                    <td>A - BRÜT SATIŞLAR (600 Hasılat)</td>
+                                    <td class="text-end font-monospace text-success" id="isGrossSales">0,00 ₺</td>
+                                </tr>
+                                <tr>
+                                    <td class="ps-4 text-muted">600.01 Yurtiçi Ürün & Hizmet Satışları</td>
+                                    <td class="text-end font-monospace" id="isGrossSalesSub">0,00 ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>B - SATIŞ İNDİRİMLERİ (-) (610 İskontolar)</td>
+                                    <td class="text-end font-monospace text-danger" id="isSalesDiscounts">0,00 ₺</td>
+                                </tr>
+                                <tr class="table-primary fw-bold">
+                                    <td>C - NET SATIŞLAR (601 Net Hasılat)</td>
+                                    <td class="text-end font-monospace fs-6" id="isNetSales">0,00 ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>D - SATILAN MALIN MALİYETİ (-) (621 SMM)</td>
+                                    <td class="text-end font-monospace text-danger" id="isCOGS">0,00 ₺</td>
+                                </tr>
+                                <tr class="table-success fw-bold">
+                                    <td>BRÜT SATIŞ KÂRI / ZARARI</td>
+                                    <td class="text-end font-monospace fs-5" id="isGrossProfit">0,00 ₺</td>
+                                </tr>
+                                <tr>
+                                    <td>E - FAALİYET GİDERLERİ (-) (770 Genel Yönetim Giderleri)</td>
+                                    <td class="text-end font-monospace text-danger" id="isOperatingExpenses">0,00 ₺</td>
+                                </tr>
+                                <tr class="table-dark fw-bold">
+                                    <td class="fs-6">NET FAALİYET KÂRI / ZARARI (DÖNEM KÂRI)</td>
+                                    <td class="text-end font-monospace fs-4 text-success" id="isNetOperatingProfit">0,00 ₺</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="p-4 rounded-4 bg-light border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-shield-check text-primary me-2"></i>Muhasebe Özeti & Oranlar</h6>
+                            <div class="mb-3">
+                                <span class="text-muted small">Brüt Kar Marjı:</span>
+                                <div class="fs-4 fw-bold text-dark font-monospace" id="isProfitMarginRatio">0%</div>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-muted small">Faaliyet Gider Oranı:</span>
+                                <div class="fs-5 fw-bold text-muted font-monospace" id="isExpenseRatio">0%</div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white rounded-3 border text-muted small">
+                            <i class="bi bi-info-circle text-info me-1"></i> Bu tablo, VUK ve TTK gereğince onaylı alış ve satış faturaları ile kasa masraf kayıtlarından otomatik olarak üretilmiştir.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🏛️ KDV ÖZET & BEYANNAME ÖN ANALİZİ -->
+    <div class="tab-pane fade" id="vatReport" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-receipt-cutoff me-2 text-warning"></i>KDV Özet & Beyanname Ön Analizi</h5>
+                    <p class="text-muted small mb-0">391 Hesaplanan KDV ve 191 İndirilecek KDV dengesi ile vergi dairesi net KDV pozisyonu</p>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="p-3 rounded-3 bg-primary-subtle text-primary border">
+                        <div class="small fw-bold text-uppercase">391 Hesaplanan KDV</div>
+                        <div class="fs-4 fw-bold font-monospace mt-1" id="vatCalculated">0,00 ₺</div>
+                        <div class="small text-muted mt-1">Satış Faturalarından</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded-3 bg-info-subtle text-info border">
+                        <div class="small fw-bold text-uppercase">191 İndirilecek KDV</div>
+                        <div class="fs-4 fw-bold font-monospace mt-1" id="vatDeductible">0,00 ₺</div>
+                        <div class="small text-muted mt-1">Alış Faturalarından</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded-3 bg-danger-subtle text-danger border">
+                        <div class="small fw-bold text-uppercase">Ödenecek KDV Pozisyonu</div>
+                        <div class="fs-4 fw-bold font-monospace mt-1" id="vatNetPayable">0,00 ₺</div>
+                        <div class="small text-muted mt-1">Vergi Dairesine Ödenecek</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 rounded-3 bg-success-subtle text-success border">
+                        <div class="small fw-bold text-uppercase">Devreden KDV Pozisyonu</div>
+                        <div class="fs-4 fw-bold font-monospace mt-1" id="vatCarriedForward">0,00 ₺</div>
+                        <div class="small text-muted mt-1">Sonraki Döneme Devreden</div>
+                    </div>
+                </div>
+            </div>
+
+            <h6 class="fw-bold text-dark mb-3">Oranlar Bazında KDV Matrah Dağılım Tablosu</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle border">
+                    <thead class="table-light">
+                        <tr>
+                            <th>KDV Oranı</th>
+                            <th class="text-end">Satış Matrahı (₺)</th>
+                            <th class="text-end">Hesaplanan KDV (₺)</th>
+                            <th class="text-end">Alış Matrahı (₺)</th>
+                            <th class="text-end">İndirilecek KDV (₺)</th>
+                            <th class="text-end">Net KDV Farkı (₺)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vatRateBreakdownBody">
+                        <tr><td colspan="6" class="text-center text-muted py-3">Hesaplanıyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stok Değer Raporu -->
+    <div class="tab-pane fade" id="stockValue" role="tabpanel">
+        <div class="efbis-card" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="efbis-card-header">
+                <div class="efbis-card-title"><i class="bi bi-archive me-1"></i>Stok Değer Raporu</div>
+                <div class="d-flex gap-2" id="stockValueSummary">
+                    <span class="badge bg-primary px-3 py-2" style="font-size:12px;">Maliyet: <strong id="svPurchase">0 ₺</strong></span>
+                    <span class="badge bg-success px-3 py-2" style="font-size:12px;">Satış: <strong id="svSale">0 ₺</strong></span>
+                    <span class="badge bg-info px-3 py-2" style="font-size:12px;">Potansiyel Kâr: <strong id="svProfit">0 ₺</strong></span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="stockValueTable">
+                    <thead>
+                        <tr>
+                            <th>Ürün Adı</th>
+                            <th>Ürün Kodu</th>
+                            <th>Kategori</th>
+                            <th>Stok Miktarı</th>
+                            <th>Birim</th>
+                            <th>Alış Fiyatı</th>
+                            <th>Satış Fiyatı</th>
+                            <th>Maliyet Değeri</th>
+                            <th>Satış Değeri</th>
+                            <th>Potansiyel Kâr</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockValueBody">
+                        <tr><td colspan="10" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cari Bakiye Raporu -->
+    <div class="tab-pane fade" id="customerBalance" role="tabpanel">
+        <div class="efbis-card" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="efbis-card-header">
+                <div class="efbis-card-title"><i class="bi bi-people me-1"></i>Cari Bakiye Raporu</div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="customerBalanceTable">
+                    <thead>
+                        <tr>
+                            <th>Firma / Müşteri Adı</th>
+                            <th>Cari Kodu</th>
+                            <th>Cari Tipi</th>
+                            <th>Şehir</th>
+                            <th>Telefon</th>
+                            <th>Bakiye</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerBalanceBody">
+                        <tr><td colspan="7" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📜 CARİ MUTABAKAT EKSTRESİ & YÜRÜYEN BAKİYE -->
+    <div class="tab-pane fade" id="customerLedger" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom flex-wrap gap-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-journal-text me-2 text-info"></i>Cari Hesap Ekstresi & Mutabakat Formu</h5>
+                    <p class="text-muted small mb-0">Tarih sıralı Borç, Alacak ve Yürüyen Bakiye hesap ekstresi</p>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <select class="form-select form-select-sm fw-bold border-primary" id="ledgerCustomerSelect" style="min-width:220px;" onchange="loadCustomerLedgerStatement(this.value)">
+                        <option value="">-- Cari Seçiniz --</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary fw-bold" onclick="printLedgerStatement()"><i class="bi bi-printer me-1"></i> Ekstre Yazdır</button>
+                </div>
+            </div>
+
+            <div id="ledgerStatementContainer">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-journal-arrow-down fs-1 d-block mb-2"></i>
+                    Ekstresini görüntülemek istediğiniz müşteriyi yukarıdaki menüden seçiniz.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- En Çok Satılan Ürünler -->
+    <div class="tab-pane fade" id="topSelling" role="tabpanel">
+        <div class="efbis-card" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="efbis-card-header">
+                <div class="efbis-card-title"><i class="bi bi-trophy me-1"></i>En Çok Satılan Ürünler</div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="topSellingTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Ürün Adı</th>
+                            <th>Ürün Kodu</th>
+                            <th>Toplam Satış Adedi</th>
+                            <th>Toplam Ciro</th>
+                            <th>Fatura Sayısı</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topSellingBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kritik Stok Raporu -->
+    <div class="tab-pane fade" id="criticalStock" role="tabpanel">
+        <div class="efbis-card" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="efbis-card-header">
+                <div class="efbis-card-title"><i class="bi bi-exclamation-diamond me-1"></i>Kritik Stok Raporu</div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="criticalStockTable">
+                    <thead>
+                        <tr>
+                            <th>Ürün Adı</th>
+                            <th>Ürün Kodu</th>
+                            <th>Kategori</th>
+                            <th>Mevcut Stok</th>
+                            <th>Minimum Stok</th>
+                            <th>Eksik</th>
+                            <th>Birim</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="criticalStockBody">
+                        <tr><td colspan="8" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🗓️ VERGİ & SGK ÖDEME TAKVİMİ -->
+    <div class="tab-pane fade" id="taxCalendar" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-check me-2 text-primary"></i>Vergi, SGK & Beyanname Ödeme Takvimi</h5>
+                    <p class="text-muted small mb-0">Yaklaşan KDV, Muhtasar, SGK prim ve Geçici Vergi ödeme tarihleriniz</p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="taxCalendarTable">
+                    <thead>
+                        <tr>
+                            <th>Vergi / Beyanname Türü</th>
+                            <th>Dönem</th>
+                            <th>Son Ödeme Tarihi</th>
+                            <th>Kalan Gün</th>
+                            <th>Tahmini Tutar</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taxCalendarBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📊 AYLIK KDV ÖDEME TAKİBİ -->
+    <div class="tab-pane fade" id="vatTracking" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-cash-coin me-2 text-info"></i>Aylık KDV Beyanname & Ödeme Durum Takibi (2026)</h5>
+                    <p class="text-muted small mb-0">391 Hesaplanan KDV ve 191 İndirilecek KDV aylık ödeme ve devir matrahı</p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table" id="vatTrackingTable">
+                    <thead>
+                        <tr>
+                            <th>Dönem / Ay</th>
+                            <th>391 Hesaplanan KDV</th>
+                            <th>191 İndirilecek KDV</th>
+                            <th>Ödenecek / Devreden KDV</th>
+                            <th>Son Ödeme Tarihi</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vatTrackingBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Yükleniyor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🏛️ TEK DÜZEN HESAP PLANI (TDHP) GENEL GEÇİCİ MİZAN -->
+    <div class="tab-pane fade" id="trialBalance" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-card-checklist me-2 text-warning"></i>Resmi Genel Geçici Mizan (Tek Düzen Hesap Planı 1xx - 7xx)</h5>
+                    <p class="text-muted small mb-0">Ana hesap kodları bazında Borç/Alacak tutarları ve Borç/Alacak bakiye denkliği</p>
+                </div>
+                <div class="badge bg-success-subtle text-success fs-6 fw-bold px-3 py-2 border border-success" id="mizanDenklikBadge">
+                    🟢 MİZAN DENK (BORÇ = ALACAK)
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="efbis-table table-bordered align-middle" id="trialBalanceTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:12%;">Hesap Kodu</th>
+                            <th style="width:38%;">Hesap Adı (TDHP)</th>
+                            <th style="width:12.5%;text-align:right;">Borç Tutarı (₺)</th>
+                            <th style="width:12.5%;text-align:right;">Alacak Tutarı (₺)</th>
+                            <th style="width:12.5%;text-align:right;">Borç Bakiye (₺)</th>
+                            <th style="width:12.5%;text-align:right;">Alacak Bakiye (₺)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trialBalanceBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">Mizan hesap verileri yükleniyor...</td></tr>
+                    </tbody>
+                    <tfoot class="table-secondary fw-bold" id="trialBalanceFooter">
+                        <!-- Dynamic Footer Totals -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📊 ÖZET BİLANÇO (AKTİF / PASİF VARLIK DENGESİ) -->
+    <div class="tab-pane fade" id="balanceSheet" role="tabpanel">
+        <div class="efbis-card p-4" style="border-top-left-radius:0;border-top-right-radius:0;">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-bank me-2 text-success"></i>Şirket Özet Bilançosu (Varlıklar & Kaynaklar)</h5>
+                    <p class="text-muted small mb-0">Aktif (Dönen Varlıklar) vs Pasif (Kısa Vadeli Yabancı Kaynaklar ve Öz Kaynaklar) Finansal Tablo</p>
+                </div>
+                <div class="badge bg-primary-subtle text-primary fs-6 fw-bold px-3 py-2 border border-primary" id="bilancoDenklikBadge">
+                    ⚖️ BİLANÇO DENGELİ (AKTİF = PASİF)
+                </div>
+            </div>
+
+            <div class="row g-4" id="balanceSheetContent">
+                <!-- Dynamic Balance Sheet Columns Rendered via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 📑 MAHSUP FİŞİ / YEVMİYE KAYDI INVENTOR MODAL -->
+<div class="modal fade" id="journalVoucherModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h6 class="modal-title fw-bold text-white mb-0" id="journalModalTitle">
+                    <i class="bi bi-journal-check me-2 text-success"></i> Resmi Mahsup Fişi (Yevmiye Maddesi)
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="journalModalBody">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="font-monospace text-muted small">Yevmiye Fiş No: <strong>YV-2026-0042</strong></span>
+                    <span class="badge bg-success-subtle text-success fw-bold font-monospace">🟢 Borç = Alacak Dengelendi</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Hesap Kodu & Adı (TDHP)</th>
+                                <th class="text-end">Borç (₺)</th>
+                                <th class="text-end">Alacak (₺)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="journalModalTableBody">
+                            <tr>
+                                <td><strong class="text-primary">120.01 ALICILAR (Müşteri Cari Hesabı)</strong></td>
+                                <td class="text-end font-monospace fw-bold">120.000,00 ₺</td>
+                                <td class="text-end font-monospace text-muted">0,00 ₺</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4">600.01 YURTİÇİ SATIŞLAR (Net Hasılat)</td>
+                                <td class="text-end font-monospace text-muted">0,00 ₺</td>
+                                <td class="text-end font-monospace fw-bold">100.000,00 ₺</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-4">391.20 HESAPLANAN KDV (%20 KDV)</td>
+                                <td class="text-end font-monospace text-muted">0,00 ₺</td>
+                                <td class="text-end font-monospace fw-bold">20.000,00 ₺</td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-dark fw-bold">
+                            <tr>
+                                <td>GENEL TOPLAM</td>
+                                <td class="text-end font-monospace text-success">120.000,00 ₺</td>
+                                <td class="text-end font-monospace text-success">120.000,00 ₺</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-sm btn-success fw-bold" onclick="alert('Mahsup fişi resmi deftere işlendi!')"><i class="bi bi-printer me-1"></i> Fiş Yazdır</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/reports.js" asp-append-version="true"></script>
+}

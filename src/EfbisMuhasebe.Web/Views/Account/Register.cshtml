@@ -1,0 +1,319 @@
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Şirket Hesabı Oluştur | EFBİS Muhasebe SaaS</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --accent: #3b82f6;
+            --dark: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 30px 20px;
+            color: #f8fafc;
+        }
+
+        .register-wrapper {
+            width: 100%;
+            max-width: 1100px;
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 28px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+        }
+
+        .brand-side {
+            background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #2563eb 100%);
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-side::after {
+            content: '';
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 50%;
+            top: -100px;
+            right: -100px;
+        }
+
+        .form-side {
+            padding: 48px;
+        }
+
+        .form-control-custom {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-radius: 12px;
+            padding: 11px 16px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-control-custom:focus {
+            background: rgba(15, 23, 42, 0.9);
+            border-color: #10b981;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+            color: #fff;
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-register:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 22px rgba(16, 185, 129, 0.5);
+            color: #fff;
+        }
+
+        .alert-custom {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 13.5px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="register-wrapper">
+        <div class="row g-0">
+            <!-- Brand Side -->
+            <div class="col-lg-5 brand-side d-none d-lg-flex">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-4">
+                        <div class="bg-white text-success rounded-3 p-2 d-flex align-items-center justify-content-center" style="width:42px;height:42px;">
+                            <i class="bi bi-rocket-takeoff-fill fs-3"></i>
+                        </div>
+                        <h4 class="fw-bold text-white m-0">EFBİS <span class="fw-normal text-white-50">SaaS</span></h4>
+                    </div>
+                    <h3 class="fw-extrabold text-white mb-3" style="line-height:1.2;">İşletmeniz İçin Bulut Ön Muhasebe Hesabı Açın</h3>
+                    <p class="text-white-50 small mb-4">Hiçbir kurulum yapmadan 30 saniyede şirketinizin ön muhasebe alanını oluşturun, fatura, stok ve cari bakiyelerinizi yönetin.</p>
+
+                    <div class="feature-item">
+                        <i class="bi bi-check-circle-fill text-warning fs-5"></i>
+                        <div>
+                            <div class="fw-bold text-white style-13">Şirketinize Özel İzolasyon</div>
+                            <div class="text-white-50 style-12">Size özel isolated tenant veri alanı</div>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <i class="bi bi-check-circle-fill text-warning fs-5"></i>
+                        <div>
+                            <div class="fw-bold text-white style-13">Tam Yetkili Admin Hesabı</div>
+                            <div class="text-white-50 style-12">Yönetici yetkileriyle doğrudan kullanım</div>
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <i class="bi bi-check-circle-fill text-warning fs-5"></i>
+                        <div>
+                            <div class="fw-bold text-white style-13">Sınırsız İşlem & Ücretsiz Başlangıç</div>
+                            <div class="text-white-50 style-12">Fatura, stok, cari ve kasa takibi</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-top border-white border-opacity-10 text-white-50 small">
+                    EFBİS Enterprise Cloud © 2026. Tüm hakları saklıdır.
+                </div>
+            </div>
+
+            <!-- Form Side -->
+            <div class="col-lg-7 form-side">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h3 class="fw-bold text-white mb-1">Şirket Hesabı Oluştur</h3>
+                        <p class="text-secondary small mb-0">Bilgilerinizi girerek yeni şirket alanınızı hemen başlatın.</p>
+                    </div>
+                    <a href="/Account/Login" class="btn btn-outline-light btn-sm fw-bold">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Zaten Hesabım Var
+                    </a>
+                </div>
+
+                <div id="alertMessage" class="alert alert-custom d-none mb-3"></div>
+
+                <form id="registerForm">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-7">
+                            <label class="form-label text-slate-300 small fw-600">Firma / Şirket Unvanı <span class="text-danger">*</span></label>
+                            <input type="text" id="companyName" class="form-control form-control-custom" placeholder="Örn: Yılmaz Teknoloji Ltd. Şti." required />
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label text-slate-300 small fw-600">Faaliyet Sektörü</label>
+                            <input type="text" id="sector" class="form-control form-control-custom" placeholder="Örn: Perakende, Bilişim, Gıda" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">Yönetici Ad Soyad <span class="text-danger">*</span></label>
+                            <input type="text" id="adminFullName" class="form-control form-control-custom" placeholder="Örn: Ahmet Yılmaz" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">Giriş E-Posta Adresi <span class="text-danger">*</span></label>
+                            <input type="email" id="adminEmail" class="form-control form-control-custom" placeholder="ahmet@firma.com" required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">Şifre Oluşturun <span class="text-danger">*</span></label>
+                            <input type="password" id="adminPassword" class="form-control form-control-custom" placeholder="••••••••" required minlength="6" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">Şifre (Tekrar) <span class="text-danger">*</span></label>
+                            <input type="password" id="confirmPassword" class="form-control form-control-custom" placeholder="••••••••" required minlength="6" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">İletişim Telefonu</label>
+                            <input type="text" id="phone" class="form-control form-control-custom" placeholder="Örn: 0532 123 45 67" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-slate-300 small fw-600">Bulunduğunuz Şehir</label>
+                            <input type="text" id="city" class="form-control form-control-custom" placeholder="Örn: İstanbul" />
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnRegister" class="btn btn-register w-100 mb-3">
+                        <span id="btnText"><i class="bi bi-rocket-takeoff me-2"></i>Hesabımı Oluştur & Sisteme Başla</span>
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    </button>
+                </form>
+
+                <div class="text-center text-secondary small">
+                    Kayıt olarak <a href="#" class="text-success text-decoration-none fw-bold">Kullanım Şartları</a> ve <a href="#" class="text-success text-decoration-none fw-bold">Gizlilik Politikası</a>'nı kabul etmiş sayılırsınız.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#registerForm').on('submit', function (e) {
+                e.preventDefault();
+                submitRegister();
+            });
+        });
+
+        function submitRegister() {
+            const companyName = $('#companyName').val().trim();
+            const sector = $('#sector').val().trim();
+            const adminFullName = $('#adminFullName').val().trim();
+            const adminEmail = $('#adminEmail').val().trim();
+            const adminPassword = $('#passwordPassword').val() || $('#adminPassword').val();
+            const confirmPassword = $('#confirmPassword').val();
+            const phone = $('#phone').val().trim();
+            const city = $('#city').val().trim();
+
+            if (!companyName || !adminFullName || !adminEmail || !adminPassword) {
+                showAlert('Lütfen zorunlu tüm alanları doldurunuz.');
+                return;
+            }
+
+            if (adminPassword !== confirmPassword) {
+                showAlert('Girdiğiniz şifreler birbiriyle uyuşmuyor.');
+                return;
+            }
+
+            $('#btnText').addClass('d-none');
+            $('#btnSpinner').removeClass('d-none');
+            $('#btnRegister').prop('disabled', true);
+            $('#alertMessage').addClass('d-none');
+
+            const payload = {
+                CompanyName: companyName,
+                Sector: sector,
+                AdminFullName: adminFullName,
+                AdminEmail: adminEmail,
+                AdminPassword: adminPassword,
+                ConfirmPassword: confirmPassword,
+                Phone: phone,
+                City: city
+            };
+
+            $.ajax({
+                url: '/Account/Register',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function (res) {
+                    if (res.success) {
+                        window.location.href = res.redirectUrl || '/';
+                    } else {
+                        showAlert(res.message || 'Kayıt sırasında hata oluştu.');
+                        resetBtn();
+                    }
+                },
+                error: function (err) {
+                    const msg = err.responseJSON?.message || 'Sunucu ile iletişim kurulurken hata oluştu.';
+                    showAlert(msg);
+                    resetBtn();
+                }
+            });
+        }
+
+        function showAlert(msg) {
+            $('#alertMessage').text(msg).removeClass('d-none');
+        }
+
+        function resetBtn() {
+            $('#btnText').removeClass('d-none');
+            $('#btnSpinner').addClass('d-none');
+            $('#btnRegister').prop('disabled', false);
+        }
+    </script>
+</body>
+</html>

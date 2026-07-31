@@ -1,0 +1,123 @@
+@{
+    ViewData["Title"] = "Veritabanı Sunucusu & Server Explorer";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item active">Veritabanı Sunucusu</li>
+}
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="bi bi-database-fill-gear text-cyan me-2" style="color:#0891b2;"></i>Veritabanı Sunucusu & Server Explorer
+        </h4>
+        <p class="text-muted small mb-0">Efbis Muhasebe veritabanı tablolarını, canlı kayıtları, şemayı ve sunucu durumunu inceleyin</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="btnRefreshDb">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn btn-sm btn-outline-primary" id="btnRunSeed">
+            <i class="bi bi-database-add me-1"></i>Seed Verilerini Güncelle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Server KPI Stat Cards ────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-database-check"></i></div>
+            <div>
+                <div class="stat-value text-success" id="dbStatus">Online 🟢</div>
+                <div class="stat-label" id="dbProvider">SQL Server LocalDB</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #2563eb;">
+            <div class="stat-icon blue"><i class="bi bi-table"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="dbTableCount">14</div>
+                <div class="stat-label">Domain Veritabanı Tablosu</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #0891b2;">
+            <div class="stat-icon" style="background:#cff4fc;color:#0891b2;"><i class="bi bi-hdd-stack-fill"></i></div>
+            <div>
+                <div class="stat-value text-info" id="dbTotalRecords">0</div>
+                <div class="stat-label">Toplam Veritabanı Satırı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #8b5cf6;">
+            <div class="stat-icon purple"><i class="bi bi-shield-check"></i></div>
+            <div>
+                <div class="stat-value text-purple" style="font-size:16px;">Soft-Delete 🛡️</div>
+                <div class="stat-label">Global Query Filter Aktif</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Layout ──────────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+    <!-- Left Sidebar: Tables List -->
+    <div class="col-12 col-lg-3">
+        <div class="efbis-card h-100">
+            <div class="efbis-card-header bg-light">
+                <div class="efbis-card-title small fw-bold text-uppercase text-muted">
+                    <i class="bi bi-list-columns me-1"></i>Veritabanı Tabloları
+                </div>
+            </div>
+            <div class="list-group list-group-flush" id="tablesListGroup" style="max-height: 600px; overflow-y: auto;">
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-efbis mx-auto mb-2"></div>
+                    Tablolar yükleniyor...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Area: Table Data & Schema Browser -->
+    <div class="col-12 col-lg-9">
+        <div class="efbis-card h-100">
+            <div class="efbis-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-table text-primary fs-5"></i>
+                    <h5 class="fw-bold text-dark mb-0" id="currentTableName">Users</h5>
+                    <span class="badge bg-secondary" id="currentTableBadge">0 kayıt</span>
+                </div>
+                <div class="search-box" style="max-width: 250px;">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="dbSearchInput" class="search-input" placeholder="Tablo içi ara..." />
+                </div>
+            </div>
+
+            <!-- Dynamic Table Data Container -->
+            <div class="table-responsive" style="min-height: 400px;">
+                <table class="efbis-table table-hover table-striped" id="dbExplorerTable">
+                    <thead class="bg-light" id="dbTableHeader">
+                        <!-- Dynamic Columns -->
+                    </thead>
+                    <tbody id="dbTableBody">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top bg-light" id="dbPagination">
+                <!-- Pagination -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/database.js" asp-append-version="true"></script>
+}

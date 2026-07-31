@@ -1,0 +1,681 @@
+@{
+    string currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    string currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    string currentQueryType = Context.Request.Query["type"].ToString()?.ToLower() ?? "";
+    string currentQueryStatus = Context.Request.Query["status"].ToString()?.ToLower() ?? "";
+    string currentQueryView = Context.Request.Query["view"].ToString()?.ToLower() ?? "";
+
+    var userName = User.Identity?.Name ?? "Fatih Yılmaz";
+    var userTitle = User.FindFirst("Title")?.Value ?? "Sistem Yöneticisi";
+    var roleText = User.FindFirst("RoleText")?.Value ?? "Admin";
+    var roleBadgeClass = User.FindFirst("RoleBadgeClass")?.Value ?? "bg-danger";
+    var userInitials = User.FindFirst("Initials")?.Value ?? "FY";
+
+    var userRoleStr = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var isSuperAdmin = userRoleStr == "SuperAdmin";
+    var companyName = User.FindFirst("CompanyName")?.Value ?? "Şirketiniz";
+    var lastLoginTime = User.FindFirst("LastLogin")?.Value ?? DateTime.Now.ToString("dd.MM.yyyy HH:mm");
+    var allowedModulesClaim = User.FindFirst("AllowedModules")?.Value ?? "ALL";
+
+    bool HasModulePermission(string moduleKey)
+    {
+        if (isSuperAdmin || userRoleStr == "Admin" || allowedModulesClaim == "ALL" || allowedModulesClaim == "*" || string.IsNullOrWhiteSpace(allowedModulesClaim)) return true;
+        var modules = allowedModulesClaim.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return modules.Contains(moduleKey, StringComparer.OrdinalIgnoreCase);
+    }
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Efbis Muhasebe - Modern Ön Muhasebe Yazılımı" />
+    <title>@ViewData["Title"] - Efbis Muhasebe</title>
+    <script>window.EFBIS_COMPANY_NAME = "@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(companyName))";</script>
+
+    <!-- Google Fonts: Inter, Outfit, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="efbis-body">
+
+    @* Super Admin Impersonation Top Banner *@
+    @{
+        var impersonatedId = User.FindFirst("ImpersonatedTenantId")?.Value;
+        var impersonatedName = User.FindFirst("ImpersonatedTenantName")?.Value ?? "Müşteri Hesabı";
+        var activeTenantSession = Context.Session.GetInt32("ActiveTenantId") ?? 0;
+        var isImpersonating = !string.IsNullOrEmpty(impersonatedId) || (isSuperAdmin && activeTenantSession > 0);
+    }
+
+    @if (isImpersonating)
+    {
+        <div class="bg-danger text-white py-2.5 px-4 d-flex align-items-center justify-content-between shadow position-sticky top-0 z-3" style="font-size:14px; font-weight:600; background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%) !important;">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fs-5">⚠️</span>
+                <span>Dikkat: Şu an Müşteri Hesabı (<strong>@(impersonatedName)</strong>) içindesiniz.</span>
+            </div>
+            <form asp-controller="Admin" asp-action="StopImpersonating" method="post" class="d-inline m-0">
+                <button type="submit" class="btn btn-sm btn-light text-danger fw-bold px-3 py-1 shadow-sm">
+                    <i class="bi bi-x-circle-fill me-1"></i> Müşteri Hesabından Çık (Super Admin'e Dön)
+                </button>
+            </form>
+        </div>
+    }
+
+    <!-- Sidebar -->
+    <nav class="efbis-sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <i class="bi bi-layers-fill"></i>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">Efbis</span>
+                <span class="brand-sub">Ön Muhasebe v2.0</span>
+            </div>
+        </div>
+
+        <div class="sidebar-nav">
+            <div class="nav-section-label">Ana Menü</div>
+
+            <a class="nav-item @(currentController == "Home" ? "active" : "")" href="/">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+
+            @if (HasModulePermission("Products") || HasModulePermission("SalesProducts") || HasModulePermission("Pos") || HasModulePermission("Categories"))
+            {
+                <div class="nav-section-label">Ürün Yönetimi</div>
+            }
+
+            @if (HasModulePermission("Products"))
+            {
+                <a class="nav-item @(currentController == "Products" ? "active" : "")" href="/Products">
+                    <i class="bi bi-box-seam"></i>
+                    <span>Tüm Ürünler</span>
+                    @if (currentController == "Products")
+                    {
+                        <span class="nav-badge">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("SalesProducts"))
+            {
+                <a class="nav-item @(currentController == "SalesProducts" ? "active" : "")" href="/SalesProducts">
+                    <i class="bi bi-bag-check"></i>
+                    <span>Satışta Olan Ürünler</span>
+                    @if (currentController == "SalesProducts")
+                    {
+                        <span class="nav-badge" style="background:#10b981;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Pos"))
+            {
+                <a class="nav-item @(currentController == "Pos" ? "active" : "")" href="/Pos">
+                    <i class="bi bi-cart-check-fill text-warning"></i>
+                    <span>Hızlı Satış (POS)</span>
+                    @if (currentController == "Pos")
+                    {
+                        <span class="nav-badge bg-warning text-dark">Kasa</span>
+                    }
+                    else
+                    {
+                        <span class="nav-badge bg-success" style="font-size:9px;">⚡ CANLI</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Categories"))
+            {
+                <a class="nav-item @(currentController == "Categories" ? "active" : "")" href="/Categories">
+                    <i class="bi bi-tags"></i>
+                    <span>Kategoriler</span>
+                    @if (currentController == "Categories")
+                    {
+                        <span class="nav-badge" style="background:#7c3aed;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("StockTransactions") || HasModulePermission("Warehouses"))
+            {
+                <div class="nav-section-label">Stok</div>
+            }
+
+            @if (HasModulePermission("StockTransactions"))
+            {
+                <a class="nav-item @(currentController == "StockTransactions" ? "active" : "")" href="/StockTransactions">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span>Stok Hareketleri</span>
+                    @if (currentController == "StockTransactions")
+                    {
+                        <span class="nav-badge" style="background:#0284c7;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Warehouses"))
+            {
+                <a class="nav-item @(currentController == "Warehouses" ? "active" : "")" href="/Warehouses">
+                    <i class="bi bi-building"></i>
+                    <span>Depolar</span>
+                    @if (currentController == "Warehouses")
+                    {
+                        <span class="nav-badge" style="background:#0891b2;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Invoices"))
+            {
+                <div class="nav-section-label">Finans & Faturalar</div>
+
+                <a class="nav-item @(currentController == "Invoices" && currentQueryType != "sales" && currentQueryType != "purchase" && currentQueryStatus != "1" && currentQueryStatus != "draft" ? "active" : "")" href="/Invoices">
+                    <i class="bi bi-receipt"></i>
+                    <span>Tüm Faturalar</span>
+                    @if (currentController == "Invoices" && currentQueryType != "sales" && currentQueryType != "purchase" && currentQueryStatus != "1" && currentQueryStatus != "draft")
+                    {
+                        <span class="nav-badge" style="background:#2563eb;">Aktif</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Invoices" && currentQueryType == "sales" ? "active" : "")" href="/Invoices?type=Sales">
+                    <i class="bi bi-file-earmark-arrow-up text-success"></i>
+                    <span>Satış Faturaları</span>
+                    @if (currentController == "Invoices" && currentQueryType == "sales")
+                    {
+                        <span class="nav-badge" style="background:#10b981;">Aktif</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Invoices" && currentQueryType == "purchase" ? "active" : "")" href="/Invoices?type=Purchase">
+                    <i class="bi bi-file-earmark-arrow-down text-info"></i>
+                    <span>Alış Faturaları</span>
+                    @if (currentController == "Invoices" && currentQueryType == "purchase")
+                    {
+                        <span class="nav-badge" style="background:#0284c7;">Aktif</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Invoices" && (currentQueryStatus == "1" || currentQueryStatus == "draft") ? "active" : "")" href="/Invoices?status=1">
+                    <i class="bi bi-hourglass-split text-warning"></i>
+                    <span>Onay Bekleyen Faturalar</span>
+                    @if (currentController == "Invoices" && (currentQueryStatus == "1" || currentQueryStatus == "draft"))
+                    {
+                        <span class="nav-badge bg-warning text-dark">Onay Bekleyen</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Customers"))
+            {
+                <div class="nav-section-label">Cariler</div>
+
+                <a class="nav-item @(currentController == "Customers" && currentQueryView != "payments" && currentQueryView != "receivables" ? "active" : "")" href="/Customers">
+                    <i class="bi bi-people"></i>
+                    <span>Cari Hesaplar</span>
+                    @if (currentController == "Customers" && currentQueryView != "payments" && currentQueryView != "receivables")
+                    {
+                        <span class="nav-badge" style="background:#f59e0b;">Aktif</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Customers" && currentQueryView == "payments" ? "active" : "")" href="/Customers?view=payments">
+                    <i class="bi bi-cash-coin text-success"></i>
+                    <span>Cari Ödemeler</span>
+                    @if (currentController == "Customers" && currentQueryView == "payments")
+                    {
+                        <span class="nav-badge" style="background:#10b981;">Ödeme</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Customers" && currentQueryView == "receivables" ? "active" : "")" href="/Customers?view=receivables">
+                    <i class="bi bi-journal-check text-info"></i>
+                    <span>Cari Alacak</span>
+                    @if (currentController == "Customers" && currentQueryView == "receivables")
+                    {
+                        <span class="nav-badge" style="background:#0284c7;">Alacak</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("CashAccounts") || HasModulePermission("IncomeExpenses") || HasModulePermission("Reports"))
+            {
+                <div class="nav-section-label">Kasa</div>
+            }
+
+            @if (HasModulePermission("CashAccounts"))
+            {
+                <a class="nav-item @(currentController == "CashAccounts" ? "active" : "")" href="/CashAccounts">
+                    <i class="bi bi-wallet2"></i>
+                    <span>Kasa & Banka</span>
+                    @if (currentController == "CashAccounts")
+                    {
+                        <span class="nav-badge" style="background:#059669;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("IncomeExpenses"))
+            {
+                <a class="nav-item @(currentController == "IncomeExpenses" ? "active" : "")" href="/IncomeExpenses">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    <span>Gelir/Gider</span>
+                    @if (currentController == "IncomeExpenses")
+                    {
+                        <span class="nav-badge" style="background:#dc2626;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Reports"))
+            {
+                <a class="nav-item @(currentController == "Reports" ? "active" : "")" href="/Reports">
+                    <i class="bi bi-bar-chart-line"></i>
+                    <span>Raporlar & Analiz</span>
+                    @if (currentController == "Reports")
+                    {
+                        <span class="nav-badge" style="background:#d97706;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Employees") || HasModulePermission("SalaryPayments") || HasModulePermission("Shifts"))
+            {
+                <div class="nav-section-label">İnsan Kaynakları & Vardiya</div>
+            }
+
+            @if (HasModulePermission("Employees"))
+            {
+                <a class="nav-item @(currentController == "Employees" ? "active" : "")" href="/Employees">
+                    <i class="bi bi-person-badge"></i>
+                    <span>Personeller</span>
+                    @if (currentController == "Employees")
+                    {
+                        <span class="nav-badge" style="background:#2563eb;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("SalaryPayments"))
+            {
+                <a class="nav-item @(currentController == "SalaryPayments" ? "active" : "")" href="/SalaryPayments">
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Maaş & Bordro</span>
+                    @if (currentController == "SalaryPayments")
+                    {
+                        <span class="nav-badge" style="background:#10b981;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (HasModulePermission("Shifts"))
+            {
+                <a class="nav-item @(currentController == "Shifts" ? "active" : "")" href="/Shifts">
+                    <i class="bi bi-calendar-range"></i>
+                    <span>Vardiya Takip & Planlama</span>
+                    @if (currentController == "Shifts")
+                    {
+                        <span class="nav-badge" style="background:#7c3aed;">Aktif</span>
+                    }
+                </a>
+            }
+
+            @if (isSuperAdmin || User.IsInRole("SuperAdmin"))
+            {
+                <div class="nav-section-label">Super Admin Özel</div>
+
+                <a class="nav-item @(currentController == "Admin" ? "active" : "")" href="/Admin">
+                    <i class="bi bi-shield-lock"></i>
+                    <span>Sistem Yönetimi</span>
+                    @if (currentController == "Admin")
+                    {
+                        <span class="nav-badge bg-danger">Sistem</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "Database" ? "active" : "")" href="/Database">
+                    <i class="bi bi-database-fill-gear text-info"></i>
+                    <span>Veritabanı Sunucusu</span>
+                    @if (currentController == "Database")
+                    {
+                        <span class="nav-badge bg-info">Server</span>
+                    }
+                </a>
+
+                <a class="nav-item @(currentController == "TenantSetup" ? "active" : "")" href="/TenantSetup">
+                    <i class="bi bi-building-add text-warning"></i>
+                    <span>Yeni Müşteri & Kurulum</span>
+                    @if (currentController == "TenantSetup")
+                    {
+                        <span class="nav-badge bg-warning text-dark">Portal</span>
+                    }
+                </a>
+            }
+        </div>
+
+        <div class="sidebar-footer border-top border-white border-opacity-10 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width:36px;height:36px;font-size:13px;">
+                        @userInitials
+                    </div>
+                    <div style="line-height:1.2;">
+                        <div class="fw-bold text-white small" style="font-size:13px;">@userName</div>
+                        <div class="text-white-50 small" style="font-size:11px;">@userTitle</div>
+                        <div class="text-white-50" style="font-size:10px;"><i class="bi bi-clock-history text-info me-1"></i>Giriş: @lastLoginTime</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-link text-white-50 p-0" onclick="logoutUser()" title="Güvenli Çıkış">
+                    <i class="bi bi-box-arrow-right fs-5"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="efbis-main" id="main-content">
+
+        <!-- Top Bar -->
+        <header class="efbis-topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menüyü aç/kapat">
+                    <i class="bi bi-list"></i>
+                </button>
+                <nav aria-label="breadcrumb" class="ms-3">
+                    <ol class="breadcrumb mb-0">
+                        @await RenderSectionAsync("Breadcrumb", required: false)
+                    </ol>
+                </nav>
+            </div>
+            <div class="topbar-right d-flex align-items-center gap-2">
+                <button class="cmd-trigger-btn d-none d-md-flex align-items-center gap-2 me-2" onclick="openCommandPalette()" title="Hızlı Komut Paleti (Ctrl+K)">
+                    <i class="bi bi-search text-muted"></i>
+                    <span class="cmd-text text-muted">Hızlı Ara...</span>
+                    <kbd class="cmd-shortcut">Ctrl+K</kbd>
+                </button>
+
+                <!-- User Dropdown Menu -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-light border-0 d-flex align-items-center gap-2 px-2 py-1 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="color:#0f172a;">
+                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width:32px;height:32px;font-size:12px;">
+                            @userInitials
+                        </div>
+                        <div class="text-start d-none d-lg-block" style="line-height:1.2;">
+                            <div class="fw-bold small" style="font-size:12.5px;">@userName</div>
+                            <span class="badge @roleBadgeClass" style="font-size:10px;">@roleText</span>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius:12px;font-size:13.5px;">
+                        <li class="px-3 py-2 border-bottom bg-light">
+                            <div class="fw-bold text-dark">@userName</div>
+                            <div class="text-muted small">@userTitle</div>
+                            <div class="text-primary fw-600 mt-1" style="font-size:11px;">
+                                <i class="bi bi-clock-history me-1"></i>Son Giriş: <span>@lastLoginTime</span>
+                            </div>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/Account/Profile">
+                                <i class="bi bi-person-circle text-primary"></i> Profilim & Ayarlar
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="/Account/Users">
+                                <i class="bi bi-shield-lock text-success"></i> Şirket Kullanıcı Yönetimi
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2" href="javascript:void(0)" onclick="openChangePasswordModal()">
+                                <i class="bi bi-key text-warning"></i> Şifre Değiştir
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger" href="javascript:void(0)" onclick="logoutUser()">
+                                <i class="bi bi-box-arrow-right"></i> Güvenli Çıkış Yap
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="efbis-content">
+            @if (HasModulePermission(currentController) || currentController == "Home" || currentController == "Account")
+            {
+                @RenderBody()
+            }
+            else
+            {
+                <div class="container py-5 text-center">
+                    <div class="efbis-card p-5 mx-auto shadow border-0" style="max-width:550px;border-radius:24px;background:#ffffff;">
+                        <div class="rounded-circle bg-danger bg-opacity-10 text-danger p-3 d-inline-flex align-items-center justify-content-center mb-3" style="width:75px;height:75px;">
+                            <i class="bi bi-shield-lock-fill fs-1"></i>
+                        </div>
+                        <h4 class="fw-bold text-dark mb-2">Modül Erişim Kısıtlaması 🔒</h4>
+                        <p class="text-muted small mb-4">Şirket yöneticiniz bu kategorinin (<strong>@currentController</strong>) erişim kutucuğundaki tiki kaldırmıştır. Bu modüle erişim izni almak için şirket yöneticiniz ile iletişime geçiniz.</p>
+                        <a href="/" class="btn btn-primary fw-bold px-4 py-2" style="border-radius:12px;">
+                            <i class="bi bi-speedometer2 me-1"></i> Ana Sayfaya Dön
+                        </a>
+                    </div>
+                </div>
+            }
+        </main>
+    </div>
+
+    <!-- ─── Change Password Modal ─────────────────────────────────────────────── -->
+    <div class="modal fade modal-efbis" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key me-2 text-primary"></i>Şifre Değiştir</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="changePasswordForm">
+                        <div class="mb-3">
+                            <label class="efbis-label">Mevcut Şifreniz <span class="required">*</span></label>
+                            <input type="password" class="efbis-input" id="currentPassword" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="efbis-label">Yeni Şifre <span class="required">*</span></label>
+                            <input type="password" class="efbis-input" id="newPassword" required minlength="6" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="efbis-label">Yeni Şifre (Tekrar) <span class="required">*</span></label>
+                            <input type="password" class="efbis-input" id="confirmPassword" required minlength="6" />
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-efbis-primary" onclick="submitChangePassword()">
+                        <i class="bi bi-check2 me-1"></i>Şifreyi Güncelle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Command Palette Modal (Ctrl+K) ─────────────────────────────────── -->
+    <div class="modal fade" id="commandPaletteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg border-0" style="border-radius:16px;overflow:hidden;background:#ffffff;">
+                <div class="modal-header border-0 pb-0 pt-3 px-4">
+                    <div class="input-group input-group-lg border-bottom pb-2 w-100">
+                        <span class="input-group-text bg-transparent border-0 pe-2 text-primary fs-4">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="cmdInput" class="form-control border-0 shadow-none fs-5" placeholder="Sayfa veya modül ara... (Örn: Fatura, Stok, Müşteri, Kasa)" autocomplete="off" />
+                        <span class="input-group-text bg-transparent border-0 text-muted small me-2">
+                            <kbd class="bg-light text-dark border px-2 py-1" style="font-size:11px;">ESC</kbd>
+                        </span>
+                    </div>
+                </div>
+                <div class="modal-body p-4" style="max-height:420px;overflow-y:auto;">
+                    <div class="text-muted small fw-bold text-uppercase mb-2" style="font-size:11px;letter-spacing:0.5px;">Hızlı Menü Kısayolları</div>
+                    <div class="list-group list-group-flush" id="cmdList">
+                        <a href="/" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-primary-subtle text-primary p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-speedometer2"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Ana Sayfa (Dashboard)</div><small class="text-muted">Genel özet, KPI kartları ve grafikler</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Products" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-success-subtle text-success p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-box-seam"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Ürün Listesi & Stok</div><small class="text-muted">Tüm ürün kartları, fiyatlar ve stok seviyeleri</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/StockTransactions" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-info-subtle text-info p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-arrow-left-right"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Stok Hareketleri</div><small class="text-muted">Faturaya bağlı stok giriş ve çıkış işlemleri</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Invoices" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-warning-subtle text-warning p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-receipt"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Faturalar (Satış & Alış)</div><small class="text-muted">Fatura oluşturma, yazdırma ve onay takibi</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Invoices?status=1" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-danger-subtle text-danger p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-hourglass-split"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Onay Bekleyen Faturalar</div><small class="text-muted">1-tıkla onaylama veya iptal havuzu</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Customers" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-primary-subtle text-primary p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-people"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Cari Hesaplar & Tedarikçiler</div><small class="text-muted">Müşteri ve tedarikçi cari kartları</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Customers?view=payments" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-success-subtle text-success p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-cash-coin"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Cari Ödemeler & Tahsilat</div><small class="text-muted">Tahsilat ve ödeme hareketleri</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/CashAccounts" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-info-subtle text-info p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-wallet2"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Kasa & Banka Yönetimi</div><small class="text-muted">Nakit ve banka hesap bakiyeleri</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/IncomeExpenses" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-danger-subtle text-danger p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-graph-up-arrow"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Gelir/Gider Raporları</div><small class="text-muted">Gelir, gider ve net kâr analizi</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+
+                        <a href="/Employees" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-2.5 px-3 rounded mb-1 border-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="rounded-circle bg-secondary-subtle text-secondary p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;"><i class="bi bi-person-badge"></i></div>
+                                <div><div class="fw-bold text-dark mb-0">Personeller & İK</div><small class="text-muted">Çalışan kartları, departman ve vardiyalar</small></div>
+                            </div>
+                            <span class="badge bg-light text-muted border">Git <i class="bi bi-arrow-right-short"></i></span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="mainToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastBody"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <script>
+        function openChangePasswordModal() {
+            document.getElementById('changePasswordForm')?.reset();
+            new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
+        }
+
+        function submitChangePassword() {
+            const current = $('#currentPassword').val();
+            const newPass = $('#newPassword').val();
+            const confirmPass = $('#confirmPassword').val();
+
+            if (!current || !newPass || !confirmPass) {
+                showToast('Lütfen tüm alanları doldurunuz.', 'warning');
+                return;
+            }
+
+            if (newPass !== confirmPass) {
+                showToast('Yeni şifreler eşleşmiyor.', 'warning');
+                return;
+            }
+
+            efbisAjax.post('/Account/ChangePassword', {
+                currentPassword: current,
+                newPassword: newPass,
+                confirmPassword: confirmPass
+            }).then(function(res) {
+                if (res && res.success) {
+                    showToast(res.message || 'Şifreniz başarıyla değiştirildi.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                } else {
+                    showToast((res && res.message) || 'Hata oluştu.', 'error');
+                }
+            });
+        }
+
+        function logoutUser() {
+            if (confirm('Oturumunuzu kapatmak istediğinize emin misiniz?')) {
+                efbisAjax.post('/Account/Logout', {}).then(function(res) {
+                    if (res && res.success) {
+                        window.location.href = res.redirectUrl || '/Account/Login';
+                    }
+                });
+            }
+        }
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

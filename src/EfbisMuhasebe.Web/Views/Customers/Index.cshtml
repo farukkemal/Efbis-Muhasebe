@@ -1,0 +1,382 @@
+@{
+    ViewData["Title"] = "Cari Hesaplar & Tedarikçiler";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="#">Finans</a></li>
+    <li class="breadcrumb-item active" id="custBreadcrumbActive">Cari Hesaplar & Tedarikçiler</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- Page Header -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title" id="custMainPageTitle">
+            <i class="bi bi-people me-2 text-primary"></i>Cari Hesaplar & Tedarikçiler
+        </h1>
+        <p class="page-subtitle" id="custMainPageSubtitle">Müşteri ve tedarikçi cari kartlarını, bakiyelerini ve iletişim bilgilerini yönetin.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-success text-white fw-bold px-3" onclick="openCustPaymentModal()" title="Cari Ödeme veya Tahsilat Kaydı Yap">
+            <i class="bi bi-cash-coin me-1.5"></i>Yeni Cari Ödeme / Tahsilat
+        </button>
+        <button class="btn-export-excel" onclick="exportTableToCSV('customersTable', 'cari_tedarikci_listesi.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('customersTable', 'Cari Hesap & Tedarikçi Listesi')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreateCustomerModal()">
+            <i class="bi bi-person-plus me-1"></i>Yeni Cari / Tedarikçi Ekle
+        </button>
+    </div>
+</div>
+
+<!-- KPI Stat Cards -->
+<div class="row g-3 mb-4" id="customerStatCards">
+    <div class="col-6 col-md-3">
+        <div class="stat-card cursor-pointer" onclick="filterByType('')" id="card-all">
+            <div class="stat-icon purple"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="stat-value" id="statTotalCustomers">—</div>
+                <div class="stat-label">Toplam Cari Kart</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card cursor-pointer" onclick="filterByType('1')" id="card-customers">
+            <div class="stat-icon blue"><i class="bi bi-person-badge"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statCustomersOnly">—</div>
+                <div class="stat-label">Müşteriler</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card cursor-pointer" onclick="filterByType('2')" id="card-suppliers">
+            <div class="stat-icon orange"><i class="bi bi-truck"></i></div>
+            <div>
+                <div class="stat-value text-warning" id="statSuppliersOnly">—</div>
+                <div class="stat-label">Tedarikçiler</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card cursor-pointer" onclick="filterByBalance('2')">
+            <div class="stat-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statTotalReceivables">—</div>
+                <div class="stat-label">Toplam Alacağımız (₺)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section mb-3">
+    <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="custSearchInput" class="search-input"
+               placeholder="Cari kod, unvan, yetkili, tel, vergi no, il..." oninput="debounceCustSearch()" />
+    </div>
+    <select class="filter-select" id="custTypeFilter" onchange="onTypeFilterChange()">
+        <option value="">Tüm Cari Türleri</option>
+        <option value="1">Müşteri (Alıcı)</option>
+        <option value="2">Tedarikçi (Satıcı)</option>
+        <option value="3">Hem Müşteri Hem Tedarikçi</option>
+    </select>
+    <select class="filter-select" id="custStatusFilter" onchange="loadCustomers()">
+        <option value="">Tüm Durumlar</option>
+        <option value="1">Aktif</option>
+        <option value="2">Pasif</option>
+    </select>
+    <select class="filter-select" id="custBalanceFilter" onchange="loadCustomers()">
+        <option value="">Tüm Bakiye Durumları</option>
+        <option value="2">Borçlu (Alacağımız)</option>
+        <option value="3">Alacaklı (Borcumuz)</option>
+        <option value="1">Bakiyesiz (0 ₺)</option>
+    </select>
+    <select class="filter-select" id="custPageSize" onchange="loadCustomers()">
+        <option value="10">10 / Sayfa</option>
+        <option value="25">25 / Sayfa</option>
+        <option value="50">50 / Sayfa</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" onclick="resetCustFilters()" title="Sıfırla">
+        <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+</div>
+
+<!-- Customers Table Card -->
+<div class="efbis-card">
+    <div class="efbis-card-header">
+        <div class="efbis-card-title">
+            <i class="bi bi-person-lines-fill me-1"></i>
+            <span id="tableTitleText">Cari / Tedarikçi Kart Listesi</span>
+            <span class="badge bg-secondary fw-normal ms-1" id="custTotalBadge">0 cari</span>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadCustomers()" title="Yenile">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+
+    <div class="table-responsive" id="custTableWrapper">
+        <table class="efbis-table" id="customersTable">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortByCust('CustomerCode')" id="th-CustomerCode">
+                        Cari Kod <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortByCust('Title')" id="th-Title">
+                        Unvan / Firma Adı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Cari Türü</th>
+                    <th>Yetkili</th>
+                    <th>Telefon</th>
+                    <th>Şehir</th>
+                    <th class="sortable" onclick="sortByCust('Balance')" id="th-Balance">
+                        Bakiye <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Bakiye Durumu</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="customersBody">
+                <tr>
+                    <td colspan="10" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top"
+         style="background:#fafbfc;" id="custPaginationWrapper">
+        <div class="text-muted" style="font-size:13px;" id="custPaginationInfo">—</div>
+        <div class="efbis-pagination" id="custPaginationButtons"></div>
+    </div>
+</div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal fade modal-efbis" id="customerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="custModalTitle"><i class="bi bi-person-plus me-2"></i>Yeni Cari Kart Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm" novalidate>
+                    <input type="hidden" id="custEditId" value="0" />
+
+                    <div class="row g-3">
+                        <!-- Temel Bilgiler -->
+                        <div class="col-12">
+                            <div class="form-section-title"><i class="bi bi-info-circle text-primary"></i> Temel Bilgiler</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Cari Kodu <span class="required">*</span></label>
+                            <input type="text" id="custCode" class="efbis-input" placeholder="Örn: MST-001 veya TDR-001" maxlength="50" required />
+                            <div class="invalid-feedback d-block text-danger" id="err-custCode" style="font-size:12px;"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="efbis-label">Firma Unvanı / Ad Soyad <span class="required">*</span></label>
+                            <input type="text" id="custTitle" class="efbis-input" placeholder="Örn: TeknoTrend Ltd. Şti." maxlength="200" required />
+                            <div class="invalid-feedback d-block text-danger" id="err-custTitle" style="font-size:12px;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Cari Türü</label>
+                            <select id="custType" class="efbis-select" onchange="onModalTypeChange(this.value)">
+                                <option value="1">Müşteri (Alıcı)</option>
+                                <option value="2">Tedarikçi (Satıcı)</option>
+                                <option value="3">Hem Müşteri Hem Tedarikçi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Yetkili Kişi</label>
+                            <input type="text" id="custAuthorized" class="efbis-input" placeholder="Örn: Ahmet Yılmaz" maxlength="100" />
+                        </div>
+
+                        <!-- Vergi & İletişim -->
+                        <div class="col-12 mt-4">
+                            <div class="form-section-title"><i class="bi bi-card-text text-primary"></i> Vergi & İletişim Bilgileri</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Vergi Dairesi</label>
+                            <input type="text" id="custTaxOffice" class="efbis-input" placeholder="Örn: Kadıköy V.D." maxlength="100" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Vergi / TC Kimlik No</label>
+                            <input type="text" id="custTaxNumber" class="efbis-input" placeholder="10 veya 11 haneli numara" maxlength="50" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Telefon</label>
+                            <input type="text" id="custPhone" class="efbis-input" placeholder="Örn: 0216 555 1234" maxlength="30" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">E-Posta</label>
+                            <input type="email" id="custEmail" class="efbis-input" placeholder="ornek@firma.com" maxlength="100" />
+                        </div>
+
+                        <!-- Adres & Finans -->
+                        <div class="col-12 mt-4">
+                            <div class="form-section-title"><i class="bi bi-geo-alt text-primary"></i> Adres & Finans</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">İl (Şehir)</label>
+                            <input type="text" id="custCity" class="efbis-input" placeholder="Örn: İstanbul" maxlength="50" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">İlçe</label>
+                            <input type="text" id="custDistrict" class="efbis-input" placeholder="Örn: Kadıköy" maxlength="50" />
+                        </div>
+                        <div class="col-12">
+                            <label class="efbis-label">Açık Adres</label>
+                            <textarea id="custAddress" class="efbis-textarea" placeholder="Mahalle, cadde, sokak, bina no..." rows="2" maxlength="500"></textarea>
+                        </div>
+                        <div class="col-md-6" id="initialBalanceWrapper">
+                            <label class="efbis-label">Açılış Bakiyesi (₺)</label>
+                            <input type="number" id="custInitialBalance" class="efbis-input" placeholder="0.00" step="0.01" value="0" />
+                            <small class="text-muted" style="font-size:11px;">Pozitif = Alacağımız var, Negatif = Borcumuz var</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Risk / Kredi Limiti (₺)</label>
+                            <input type="number" id="custRiskLimit" class="efbis-input" placeholder="0.00" min="0" step="0.01" value="0" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn-efbis-primary" onclick="saveCustomer()" id="btnSaveCustomer">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal fade modal-efbis" id="customerDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);">
+                <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Cari Kart / Tedarikçi Detayı</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="custDetailBody">
+                <div class="text-center py-4"><div class="spinner-efbis mx-auto"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal fade modal-efbis" id="deleteCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="confirm-icon"><i class="bi bi-trash3"></i></div>
+                <h6 class="fw-700 mb-2">Cari Kartı Sil</h6>
+                <p class="text-muted mb-0" style="font-size:13.5px;">
+                    <strong id="deleteCustTitle"></strong> cari kartını silmek istediğinizden emin misiniz?
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn btn-danger fw-600" onclick="confirmDeleteCustomer()">Evet, Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YENİ CARİ ÖDEME / TAHSİLAT EKLE -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="custPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-coin me-2"></i>Yeni Cari Ödeme / Tahsilat Kaydı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="custPaymentForm">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Cari Hesap (Müşteri / Tedarikçi) <span class="required">*</span></label>
+                            <select class="efbis-select" id="payCustomerId" required>
+                                <option value="">-- Cari Seçiniz --</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">İşlem Tipi <span class="required">*</span></label>
+                            <select class="efbis-select" id="payTransactionType" required>
+                                <option value="1">🟢 Tahsilat (Müşteriden Para Alındı -> Bakiye Düşer)</option>
+                                <option value="2">🔴 Tediye / Ödeme (Tedarikçiye Para Ödendi -> Borç Kapanır)</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Kasa / Banka Hesabı <span class="required">*</span></label>
+                            <select class="efbis-select" id="payCashAccountId" required>
+                                <option value="">-- Kasa / Banka Hesabı Seçiniz --</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Ödeme Tutarı (₺) <span class="required">*</span></label>
+                            <input type="number" step="0.01" min="0.01" class="efbis-input" id="payAmount" placeholder="0.00" required />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">İşlem Tarihi <span class="required">*</span></label>
+                            <input type="datetime-local" class="efbis-input" id="payTransactionDate" required />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="efbis-label">Açıklama / Not</label>
+                            <input type="text" class="efbis-input" id="payDescription" placeholder="Örn: Faturaya mahsuben tahsilat / ödeme..." />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-success text-white fw-bold px-4" onclick="saveCustomerPayment()">
+                    <i class="bi bi-check2-circle me-1"></i>Ödemeyi / Tahsilatı Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CARİ HESAP MUTABAKAT MEKTUBU VE FORM BA/BS MODALI -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="reconciliationLetterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="bi bi-journal-check text-warning me-2"></i> Resmi Cari Hesap Mutabakat Mektubu (Form BA/BS)
+                </h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="button" class="btn btn-sm btn-warning fw-bold px-3" onclick="printReconciliationLetter()">
+                        <i class="bi bi-printer me-1"></i> Mektubu Yazdır
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-4 bg-light" id="reconciliationPrintArea">
+                <!-- Dynamic Reconciliation Form Rendered via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/customers.js" asp-append-version="true"></script>
+}

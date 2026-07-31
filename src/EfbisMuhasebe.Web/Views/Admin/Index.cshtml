@@ -1,0 +1,530 @@
+@model IEnumerable<EfbisMuhasebe.Domain.Entities.Tenant>
+@{
+    ViewData["Title"] = "SaaS Platform SuperAdmin Kumanda Merkezi";
+    int activeTenantId = ViewBag.ActiveTenantId ?? 0;
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/Admin">SuperAdmin Paneli</a></li>
+    <li class="breadcrumb-item active">Platform Kumanda Merkezi</li>
+}
+
+<!-- ─── Active Context Banner ────────────────────────────────────────────────── -->
+<div id="activeTenantBanner" class="alert d-flex align-items-center justify-content-between mb-4 shadow-sm rounded-4 p-3 border-0 text-white" 
+     style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-left: 6px solid #8b5cf6 !important;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle p-2.5 d-flex align-items-center justify-content-center text-white fw-bold" style="width:46px;height:46px;background:rgba(139, 92, 246, 0.25);border: 1px solid rgba(139, 92, 246, 0.4);">
+            👑
+        </div>
+        <div>
+            <div class="fw-bold fs-6 mb-0 text-white d-flex align-items-center gap-2">
+                EFBİS Enterprise Cloud SuperAdmin Modu
+                <span class="badge bg-purple text-white" id="currentTenantBadge" style="background:#8b5cf6;">Ortak Görünüm</span>
+            </div>
+            <div class="small text-white-50" id="currentTenantSubtext">Tüm kayıtlı şirketlerin ortak finansal verilerini ve platform parametrelerini yönetiyorsunuz.</div>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-light border-white-50 fw-bold" onclick="resetToGlobalView()">
+            <i class="bi bi-globe me-1"></i>Tüm Şirketler Ortak Görünümü
+        </button>
+        <a href="/TenantSetup" class="btn btn-sm text-dark fw-bold" style="background:#f59e0b;border:none;">
+            <i class="bi bi-building-add me-1"></i>Yeni Şirket Kur
+        </a>
+    </div>
+</div>
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="bi bi-shield-lock-fill text-danger me-2"></i>Platform SuperAdmin Kumanda Merkezi
+        </h4>
+        <p class="text-muted small mb-0">Tüm şirketler (tenants), veritabanı sunucu düğümleri, kullanıcı hesapları ve platform finansal hacmi</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="btnRefreshAdmin">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-efbis-primary btn-sm" id="btnNewUser">
+            <i class="bi bi-person-plus-fill me-1"></i>Yeni Kullanıcı Ekle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Admin Stat Cards ─────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #8b5cf6;">
+            <div class="stat-icon purple" style="background:#f3e8ff;color:#8b5cf6;"><i class="bi bi-building-gear"></i></div>
+            <div>
+                <div class="stat-value text-purple" id="statTotalTenants" style="color:#8b5cf6;">0</div>
+                <div class="stat-label">Kayıtlı Şirket (Tenant) Sayısı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #ef4444;">
+            <div class="stat-icon red"><i class="bi bi-people-fill"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="statTotalUsers">0</div>
+                <div class="stat-label">Toplam Tanımlı Kullanıcı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-database-fill-gear"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statDbServerNode" style="font-size:15px;font-weight:700;">LocalDB Node 🟢</div>
+                <div class="stat-label">Veritabanı Sunucusu & Düğüm</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #2563eb;">
+            <div class="stat-icon blue"><i class="bi bi-currency-dollar"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statPlatformRevenue">0 ₺</div>
+                <div class="stat-label">Platform Toplam Fatura Hacmi</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Admin Tabs ───────────────────────────────────────────────────────── -->
+<div class="efbis-card mb-4">
+    <div class="efbis-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <ul class="nav nav-pills card-header-pills" id="adminTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active fw-bold px-3 py-1.5" id="tenants-tab" data-bs-toggle="tab" data-bs-target="#tenantsView" type="button" role="tab" onclick="loadTenantsData()">
+                    <i class="bi bi-buildings-fill me-1"></i>Şirketler & Tenant Veri İnceleme
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold px-3 py-1.5" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersView" type="button" role="tab">
+                    <i class="bi bi-person-lines-fill me-1"></i>Platform Kullanıcı Yönetimi
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold px-3 py-1.5" id="db-tab" data-bs-toggle="tab" data-bs-target="#dbNodeView" type="button" role="tab">
+                    <i class="bi bi-database-gear me-1"></i>Veritabanı Sunucuları & Düğümler
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link fw-bold px-3 py-1.5" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logsView" type="button" role="tab" onclick="loadAuditLogs()">
+                    <i class="bi bi-journal-text me-1"></i>Sistem & Güvenlik Logları
+                </button>
+            </li>
+        </ul>
+        <div class="text-muted small">EFBİS SaaS SuperAdmin v2.0</div>
+    </div>
+
+    <div class="tab-content" id="adminTabContent">
+        <!-- ── TAB 1: ŞİRKETLER & TENANT VERİ İNCELEME ───────────────────────────── -->
+        <div class="tab-pane fade show active" id="tenantsView" role="tabpanel">
+            <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-building me-2 text-primary"></i>Kayıtlı Şirketler (Tenants) Listesi</h6>
+                    <small class="text-muted">Şirket verilerini incelemek ve işlem yapmak için 'İçeri Gir' butonuna tıklayabilirsiniz.</small>
+                </div>
+                <form asp-controller="Admin" asp-action="StopImpersonating" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-primary fw-bold">
+                        <i class="bi bi-globe me-1"></i>Tüm Şirketler Ortak Görünümüne Sıfırla
+                    </button>
+                </form>
+            </div>
+
+            <!-- ── Tenant Cards Grid (Super Admin Impersonation) ── -->
+            <div class="p-3 border-bottom bg-white">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-grid-fill text-purple me-2" style="color:#8b5cf6;"></i>Şirket Kartları & Müşteri Hesabı Taklidi (Super Admin Impersonation)</h6>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var tenant in Model)
+                        {
+                            <div class="col">
+                                <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:#f8fafc; border:1px solid #e2e8f0 !important;">
+                                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
+                                        <span class="badge bg-secondary font-monospace" style="font-size:11px;">@tenant.TenantCode</span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:11px;">@(tenant.IsActive ? "Aktif Şirket" : "Pasif")</span>
+                                    </div>
+                                    <div class="card-body p-3 d-flex flex-column">
+                                        <h6 class="fw-bold text-dark mb-1" style="font-size:14.5px;">@tenant.CompanyName</h6>
+                                        <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-1 text-danger"></i>@(tenant.City ?? "İstanbul") <span class="text-secondary">(@(tenant.Sector ?? "Genel Ticaret"))</span></p>
+                                        <div class="d-flex flex-column gap-1 small text-secondary mb-3">
+                                            <div><i class="bi bi-envelope me-1 text-primary"></i>@tenant.Email</div>
+                                            <div><i class="bi bi-telephone me-1 text-success"></i>@(tenant.Phone ?? "—")</div>
+                                            <div><i class="bi bi-receipt-cutoff me-1 text-warning"></i>VN: @(tenant.TaxNumber ?? "—") (@(tenant.TaxOffice ?? "—"))</div>
+                                        </div>
+                                        <form asp-controller="Admin" asp-action="Impersonate" method="post" class="mt-auto">
+                                            <input type="hidden" name="tenantId" value="@tenant.Id" />
+                                            <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold shadow-sm py-1.5" style="border-radius:8px;">
+                                                <i class="bi bi-box-arrow-in-right me-1"></i>İçeri Gir (Impersonate)
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="col-12 text-muted text-center py-3">Henüz kayıtlı şirket bulunmamaktadır.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="efbis-table" id="tenantsTable">
+                    <thead>
+                        <tr>
+                            <th>Tenant Kodu</th>
+                            <th>Firma / Şirket Unvanı</th>
+                            <th>Yönetici E-Posta</th>
+                            <th>Şehir / Sektör</th>
+                            <th>Ürün / Fatura</th>
+                            <th>Kayıt Tarihi</th>
+                            <th>Durum</th>
+                            <th style="text-align:center;">İşlem & İnceleme</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenantsTableBody">
+                        <!-- AJAX render -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── TAB 2: KULLANICI YÖNETİMİ ────────────────────────────────────────── -->
+        <div class="tab-pane fade" id="usersView" role="tabpanel">
+            <!-- Filter Bar -->
+            <div class="p-3 border-bottom bg-light">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <div class="search-box">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="search-input" id="filterUserSearch" placeholder="E-posta, ad soyad veya unvan ara..." />
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="filter-select w-100" id="filterUserRole">
+                            <option value="">Tüm Roller</option>
+                            <option value="1">🔴 Sistem Yöneticisi (Admin)</option>
+                            <option value="2">🔵 Mağaza Müdürü</option>
+                            <option value="3">🟢 Kıdemli Muhasebeci</option>
+                            <option value="4">⚪ Mağaza Personeli</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <select class="filter-select w-100" id="filterUserStatus">
+                            <option value="">Tüm Durumlar</option>
+                            <option value="true">🟢 Aktif Hesaplar</option>
+                            <option value="false">🔴 Pasif Hesaplar</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2 text-end">
+                        <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearUserFilters()">Filtreleri Temizle</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="table-responsive">
+                <table class="efbis-table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">Avatar</th>
+                            <th>Kullanıcı Adı / E-Posta</th>
+                            <th>Ad Soyad</th>
+                            <th>Unvan</th>
+                            <th>Yetki Rolü</th>
+                            <th>Telefon</th>
+                            <th>Son Giriş Tarihi</th>
+                            <th>Durum</th>
+                            <th style="text-align:center;">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- AJAX render -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+                <div id="usersPagination"></div>
+            </div>
+        </div>
+
+        <!-- ── TAB 3: VERİTABANI SUNUCULARI & ŞİRKET DÜĞÜMLERİ ────────────────── -->
+        <div class="tab-pane fade" id="dbNodeView" role="tabpanel">
+            <div class="p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-database-fill-gear text-info me-2"></i>Veritabanı Sunucusu & Şirket Veritabanı Kutucukları (Tenant DB Clusters)</h6>
+                        <p class="text-muted small mb-0">SQL Server LocalDB üzerindeki şirket veritabanı ayrıştırma düğümleri. İstediğiniz şirketin veritabanına doğrudan girebilir veya tablolarını inceleyebilirsiniz.</p>
+                    </div>
+                    <span class="badge bg-success px-3 py-2 fs-6 shadow-sm">🟢 SQL LocalDB Node Aktif (Healthy)</span>
+                </div>
+
+                <!-- Birincil Düğüm Stat Özeti -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-4 border">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-hdd-stack me-2 text-primary"></i>Primary Database Instance</h6>
+                            <div class="small mb-1"><strong>Sunucu Instance:</strong> <code>(localdb)\mssqllocaldb</code></div>
+                            <div class="small mb-1"><strong>Veritabanı Kataloğu:</strong> <code>EfbisMuhasebeDb</code></div>
+                            <div class="small"><strong>Bağlantı Havuzu:</strong> Aktif & Ready (&lt; 1 ms Latency)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-4 border">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-shield-check me-2 text-success"></i>Multi-Tenant DB İzolasyonu</h6>
+                            <div class="small mb-1"><strong>Veri Ayrıştırma Mantığı:</strong> EF Core Global Query Filter (<code>TenantId</code>)</div>
+                            <div class="small mb-1"><strong>Erişim Yetkisi:</strong> Super Admin Bağlam Değiştirici</div>
+                            <div class="small"><strong>Güvenlik:</strong> Dinamik Şirket Bazlı SQL Filtreleme Etkin</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Şirket Veritabanı Kutucukları (Tenant DB Boxes) Grid -->
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-boxes text-purple me-2" style="color:#8b5cf6;"></i>Kayıtlı Şirket Veritabanı Düğümleri (Tenant DB Clusters)</h6>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var tenant in Model)
+                        {
+                            <div class="col">
+                                <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden" style="background:#ffffff; border:1px solid #cbd5e1 !important;">
+                                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
+                                        <div class="d-flex align-items-center gap-1.5">
+                                            <i class="bi bi-database-fill text-info me-1"></i>
+                                            <span class="fw-bold font-monospace" style="font-size:12px;">@tenant.TenantCode</span>
+                                        </div>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:11px;">🟢 DB Online</span>
+                                    </div>
+                                    <div class="card-body p-3 d-flex flex-column">
+                                        <h6 class="fw-bold text-dark mb-1" style="font-size:14.5px;">@tenant.CompanyName</h6>
+                                        <div class="text-muted small mb-2 font-monospace" style="font-size:11px;">
+                                            <i class="bi bi-server me-1"></i>Scope: <code>TenantId = @tenant.Id</code>
+                                        </div>
+                                        <div class="p-2 rounded bg-light border mb-3 small text-secondary">
+                                            <div class="d-flex justify-content-between mb-1"><span>E-Posta:</span><strong class="text-dark">@tenant.Email</strong></div>
+                                            <div class="d-flex justify-content-between"><span>Veritabanı:</span><span class="badge bg-secondary font-monospace">EfbisMuhasebeDb</span></div>
+                                        </div>
+                                        
+                                        <div class="d-flex gap-2 mt-auto">
+                                            <form asp-controller="Admin" asp-action="Impersonate" method="post" class="flex-grow-1 m-0">
+                                                <input type="hidden" name="tenantId" value="@tenant.Id" />
+                                                <button type="submit" class="btn btn-success btn-sm w-100 fw-bold py-1.5 shadow-sm" style="font-size:12px;">
+                                                    <i class="bi bi-box-arrow-in-right me-1"></i>Veritabanına Gir
+                                                </button>
+                                            </form>
+                                            <button type="button" class="btn btn-outline-primary btn-sm fw-bold py-1.5" style="font-size:12px;" onclick="openTenantDbModal(@tenant.Id)">
+                                                <i class="bi bi-search me-1"></i>Tablolar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="col-12 text-muted text-center py-4">Kayıtlı şirket veritabanı bulunamadı.</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB 4: SİSTEM & GÜVENLİK LOGLARI ───────────────────────────────── -->
+        <div class="tab-pane fade" id="logsView" role="tabpanel">
+            <div class="p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Son İşlem & Güvenlik Logları</h6>
+                    <span class="badge bg-secondary">Canlı Sistem İzleme</span>
+                </div>
+                <div class="table-responsive border rounded">
+                    <table class="efbis-table">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Zaman</th>
+                                <th>Kullanıcı</th>
+                                <th>Seviye</th>
+                                <th>Modül</th>
+                                <th>Yapılan İşlem / Olay</th>
+                                <th>IP Adresi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditLogsBody">
+                            <!-- AJAX render -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YENİ / DÜZENLE KULLANICI -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #1e3a8a, #1d4ed8);">
+                <h5 class="modal-title" id="userModalTitle">
+                    <i class="bi bi-person-plus me-2"></i>Yeni Kullanıcı Hesabı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId" name="id" value="0">
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">E-Posta Adresi <span class="required">*</span></label>
+                            <input type="email" class="efbis-input" id="userEmail" name="email" required placeholder="ornek@efbismuhasebe.com" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Ad Soyad <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="userFullName" name="fullName" required placeholder="Örn: Fatih Yılmaz" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Yetki Rolü <span class="required">*</span></label>
+                            <select class="efbis-select" id="userRole" name="role" required>
+                                <option value="1">Sistem Yöneticisi (Admin)</option>
+                                <option value="2">Mağaza Müdürü (Store Manager)</option>
+                                <option value="3">Kıdemli Muhasebeci (Accountant)</option>
+                                <option value="4">Mağaza Personeli (Staff)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Unvan / Görev</label>
+                            <input type="text" class="efbis-input" id="userTitleInput" name="title" placeholder="Örn: Şube / Bölge Müdürü" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Telefon Numarası</label>
+                            <input type="text" class="efbis-input" id="userPhone" name="phoneNumber" placeholder="05XX XXX XX XX" />
+                        </div>
+                        <div class="col-md-6 password-field">
+                            <label class="efbis-label">Şifre <span class="required">*</span></label>
+                            <input type="password" class="efbis-input" id="userPassword" name="password" placeholder="En az 6 karakter" />
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" id="userIsActive" checked>
+                        <label class="form-check-label fw-bold" for="userIsActive">Kullanıcı Hesabı Aktif Olsun</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" id="btnSaveUser">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YÖNETİCİ ŞİFRE SIFIRLAMA -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #d97706, #b45309);">
+                <h5 class="modal-title"><i class="bi bi-key-fill me-2"></i>Kullanıcı Şifresi Sıfırla</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resetUserId" />
+                <p class="text-muted small mb-3">Seçilen kullanıcı için yeni bir giriş şifresi belirleyiniz.</p>
+                <div class="mb-3">
+                    <label class="efbis-label">Yeni Şifre <span class="required">*</span></label>
+                    <input type="password" class="efbis-input" id="resetNewPassword" placeholder="En az 6 karakter" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="confirmResetPassword()">
+                    <i class="bi bi-check-lg me-1"></i>Şifreyi Sıfırla
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: ŞİRKET VERİTABANI VE SQL TABLO İNCELEYİCİ -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="tenantDbModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0f172a, #1e293b);">
+                <h5 class="modal-title d-flex align-items-center gap-2">
+                    <i class="bi bi-database-fill text-info"></i>
+                    <span id="tenantDbModalTitle">Şirket Veritabanı Tabloları</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div id="tenantDbInfo" class="small text-secondary">
+                        <!-- Server info -->
+                    </div>
+                    <form id="tenantDbImpersonateForm" asp-controller="Admin" asp-action="Impersonate" method="post" class="m-0">
+                        <input type="hidden" id="tenantDbImpersonateId" name="tenantId" value="0" />
+                        <button type="submit" class="btn btn-sm btn-success fw-bold px-3 shadow-sm">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Bu Veritabanına Bağlan / Gir
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="p-3">
+                    <ul class="nav nav-tabs card-header-tabs mb-3" id="dbTableTabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active fw-bold" id="db-products-tab" data-bs-toggle="tab" data-bs-target="#dbProductsPane">📦 Ürünler (dbo.Products)</button></li>
+                        <li class="nav-item"><button class="nav-link fw-bold" id="db-invoices-tab" data-bs-toggle="tab" data-bs-target="#dbInvoicesPane">📑 Faturalar (dbo.Invoices)</button></li>
+                        <li class="nav-item"><button class="nav-link fw-bold" id="db-customers-tab" data-bs-toggle="tab" data-bs-target="#dbCustomersPane">👥 Cari Hesaplar (dbo.Customers)</button></li>
+                        <li class="nav-item"><button class="nav-link fw-bold" id="db-cash-tab" data-bs-toggle="tab" data-bs-target="#dbCashPane">💳 Kasalar (dbo.CashAccounts)</button></li>
+                        <li class="nav-item"><button class="nav-link fw-bold" id="db-employees-tab" data-bs-toggle="tab" data-bs-target="#dbEmployeesPane">👔 Personeller (dbo.Employees)</button></li>
+                    </ul>
+
+                    <div class="tab-content" id="dbTableTabContent">
+                        <div class="tab-pane fade show active" id="dbProductsPane">
+                            <div class="table-responsive border rounded"><table class="efbis-table"><thead><tr><th>ID</th><th>Kod</th><th>Ürün Adı</th><th>Satış Fiyatı</th><th>Mevcut Stok</th><th>Kayıt Tarihi</th></tr></thead><tbody id="dbProductsTableBody"></tbody></table></div>
+                        </div>
+                        <div class="tab-pane fade" id="dbInvoicesPane">
+                            <div class="table-responsive border rounded"><table class="efbis-table"><thead><tr><th>ID</th><th>Fatura No</th><th>Tutar</th><th>Tarih</th><th>Durum</th></tr></thead><tbody id="dbInvoicesTableBody"></tbody></table></div>
+                        </div>
+                        <div class="tab-pane fade" id="dbCustomersPane">
+                            <div class="table-responsive border rounded"><table class="efbis-table"><thead><tr><th>ID</th><th>Cari Kod</th><th>Unvan</th><th>Bakiye</th><th>Telefon</th></tr></thead><tbody id="dbCustomersTableBody"></tbody></table></div>
+                        </div>
+                        <div class="tab-pane fade" id="dbCashPane">
+                            <div class="table-responsive border rounded"><table class="efbis-table"><thead><tr><th>ID</th><th>Kod</th><th>Hesap Adı</th><th>Bakiye</th><th>Para Birimi</th></tr></thead><tbody id="dbCashTableBody"></tbody></table></div>
+                        </div>
+                        <div class="tab-pane fade" id="dbEmployeesPane">
+                            <div class="table-responsive border rounded"><table class="efbis-table"><thead><tr><th>ID</th><th>Ad Soyad</th><th>Unvan</th><th>Departman</th><th>Telefon</th></tr></thead><tbody id="dbEmployeesTableBody"></tbody></table></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/admin.js" asp-append-version="true"></script>
+}

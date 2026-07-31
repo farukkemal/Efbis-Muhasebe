@@ -1,0 +1,439 @@
+@{
+    ViewData["Title"] = "Satışta Olan Ürünler";
+    var categories = ViewBag.Categories as IEnumerable<EfbisMuhasebe.Application.DTOs.CategoryDto> ?? new List<EfbisMuhasebe.Application.DTOs.CategoryDto>();
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Products">Ürün Yönetimi</a></li>
+    <li class="breadcrumb-item active">Satışta Olan Ürünler</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-bag-check me-2 text-success"></i>Satışta Olan Ürünler
+        </h1>
+        <p class="page-subtitle">
+            Ürünlerin satış politikalarını yönetin. Yeni ürün eklemek için
+            <a href="/Products" class="text-primary fw-600">Tüm Ürünler</a> sayfasını kullanın.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-export-excel" onclick="exportTableToCSV('salesTable', 'satis_urun_listesi.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('salesTable', 'Satışta Olan Ürünler Listesi')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" id="btnRefresh" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <a href="/Products" class="btn-efbis-primary" style="padding:8px 16px;font-size:13px;">
+            <i class="bi bi-box-seam me-1"></i>Tüm Ürünler
+        </a>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4" id="dashboardCards">
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('all')" style="cursor:pointer;" id="card-total">
+            <div class="stat-icon purple"><i class="bi bi-box-seam"></i></div>
+            <div>
+                <div class="stat-value" id="dashTotal">—</div>
+                <div class="stat-label">Toplam Ürün</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('available')" style="cursor:pointer;" id="card-available">
+            <div class="stat-icon green"><i class="bi bi-bag-check"></i></div>
+            <div>
+                <div class="stat-value text-success" id="dashAvailable">—</div>
+                <div class="stat-label">Satışta</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('unavailable')" style="cursor:pointer;" id="card-unavailable">
+            <div class="stat-icon orange"><i class="bi bi-bag-x"></i></div>
+            <div>
+                <div class="stat-value text-warning" id="dashUnavailable">—</div>
+                <div class="stat-label">Satış Dışı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('passive')" style="cursor:pointer;" id="card-passive">
+            <div class="stat-icon" style="background:#f1f5f9;color:#64748b;"><i class="bi bi-pause-circle"></i></div>
+            <div>
+                <div class="stat-value text-secondary" id="dashPassive">—</div>
+                <div class="stat-label">Pasif Ürün</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('critical')" style="cursor:pointer;" id="card-critical">
+            <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <div class="stat-value text-danger" id="dashCritical">—</div>
+                <div class="stat-label">Kritik Stok</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-4 col-lg-2">
+        <div class="stat-card sales-stat-card" onclick="filterByCard('outofstock')" style="cursor:pointer;" id="card-outofstock">
+            <div class="stat-icon" style="background:#1e293b;color:#f1f5f9;"><i class="bi bi-x-circle"></i></div>
+            <div>
+                <div class="stat-value" style="color:#0f172a;" id="dashOutOfStock">—</div>
+                <div class="stat-label">Stok Yok</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Bulk Action Bar ────────────────────────────────────────────────────────── -->
+<div id="bulkActionBar" class="bulk-action-bar d-none mb-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="bulk-count-badge">
+            <i class="bi bi-check2-square me-1"></i>
+            <span id="selectedCount">0</span> ürün seçildi
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn-bulk btn-bulk-green" onclick="bulkSaleStatus(true)" id="btnBulkOpen">
+                <i class="bi bi-bag-check me-1"></i>Satışa Aç
+            </button>
+            <button class="btn-bulk btn-bulk-orange" onclick="bulkSaleStatus(false)" id="btnBulkClose">
+                <i class="bi bi-bag-x me-1"></i>Satıştan Kaldır
+            </button>
+            <button class="btn-bulk btn-bulk-blue" onclick="bulkActivate()" id="btnBulkActivate">
+                <i class="bi bi-check-circle me-1"></i>Aktifleştir
+            </button>
+            <button class="btn-bulk btn-bulk-gray" onclick="bulkPassivate()" id="btnBulkPassivate">
+                <i class="bi bi-pause-circle me-1"></i>Pasifleştir
+            </button>
+            <button class="btn-bulk btn-bulk-purple" onclick="openBulkPriceModal()" id="btnBulkPrice">
+                <i class="bi bi-tag me-1"></i>Fiyat Güncelle
+            </button>
+            <button class="btn-bulk btn-bulk-teal" onclick="openBulkCategoryModal()" id="btnBulkCategory">
+                <i class="bi bi-folder me-1"></i>Kategori Değiştir
+            </button>
+        </div>
+        <button class="btn btn-sm btn-link text-muted ms-auto" onclick="clearSelection()">
+            <i class="bi bi-x-lg"></i> Seçimi Temizle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Filters ────────────────────────────────────────────────────────────────── -->
+<div class="filter-section mb-3">
+    <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" class="search-input"
+               placeholder="Ürün adı, kod, barkod veya kategori..." oninput="debounceSearch()" />
+    </div>
+    <select class="filter-select" id="categoryFilter" onchange="loadProducts()">
+        <option value="">Tüm Kategoriler</option>
+        @foreach (var cat in categories)
+        {
+            <option value="@cat.Id">@cat.Name</option>
+        }
+    </select>
+    <select class="filter-select" id="saleStatusFilter" onchange="loadProducts()">
+        <option value="">Tüm Satış Durumu</option>
+        <option value="true">Satışta</option>
+        <option value="false">Satışta Değil</option>
+    </select>
+    <select class="filter-select" id="productStatusFilter" onchange="loadProducts()">
+        <option value="">Tüm Ürün Durumu</option>
+        <option value="1">Aktif</option>
+        <option value="2">Pasif</option>
+    </select>
+    <select class="filter-select" id="stockStatusFilter" onchange="loadProducts()">
+        <option value="">Tüm Stok Durumu</option>
+        <option value="1">Yeterli</option>
+        <option value="2">Az Stok</option>
+        <option value="3">Kritik Stok</option>
+        <option value="4">Stok Yok</option>
+    </select>
+    <select class="filter-select" id="pageSizeSelect" onchange="loadProducts()">
+        <option value="10">10 / Sayfa</option>
+        <option value="25">25 / Sayfa</option>
+        <option value="50">50 / Sayfa</option>
+    </select>
+
+    <!-- Gelişmiş filtre toggle -->
+    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+            data-bs-target="#advancedFilters" aria-expanded="false">
+        <i class="bi bi-sliders me-1"></i>Gelişmiş
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()" title="Sıfırla">
+        <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+</div>
+
+<!-- Gelişmiş Filtreler -->
+<div class="collapse" id="advancedFilters">
+    <div class="filter-section mb-3" style="background:#f0fdf4;border-color:#bbf7d0;">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <label class="d-flex align-items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="belowMinStock" onchange="loadProducts()" class="form-check-input m-0" />
+                <span style="font-size:13.5px;font-weight:500;">Yalnızca Min. Stok Altındakiler</span>
+            </label>
+            <label class="d-flex align-items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="outOfStockOnly" onchange="loadProducts()" class="form-check-input m-0" />
+                <span style="font-size:13.5px;font-weight:500;">Yalnızca Stokta Olmayanlar</span>
+            </label>
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-size:13px;font-weight:500;color:#64748b;">Fiyat:</span>
+                <input type="number" id="minPrice" class="efbis-input" placeholder="Min ₺"
+                       style="width:90px;" min="0" onchange="loadProducts()" />
+                <span style="color:#94a3b8;">—</span>
+                <input type="number" id="maxPrice" class="efbis-input" placeholder="Max ₺"
+                       style="width:90px;" min="0" onchange="loadProducts()" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Table ──────────────────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header">
+        <div class="efbis-card-title">
+            <i class="bi bi-bag-check text-success"></i>
+            Satış Ürün Listesi
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 ürün</span>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="sales-sort-info d-none" id="sortInfo" style="font-size:12px;color:#94a3b8;"></div>
+        </div>
+    </div>
+
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="salesTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;">
+                        <input type="checkbox" id="selectAll" class="form-check-input m-0"
+                               onchange="toggleSelectAll()" title="Tümünü Seç" />
+                    </th>
+                    <th class="sortable" onclick="sortBy('ProductName')" id="th-ProductName">
+                        Ürün Adı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortBy('ProductCode')" id="th-ProductCode">
+                        Ürün Kodu <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Barkod</th>
+                    <th>Kategori</th>
+                    <th>Birim</th>
+                    <th class="sortable" onclick="sortBy('SalePrice')" id="th-SalePrice">
+                        Satış Fiyatı <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th class="sortable" onclick="sortBy('CurrentStock')" id="th-CurrentStock">
+                        Güncel Stok <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th>Min. Stok</th>
+                    <th>Stok Durumu</th>
+                    <th>Satış Durumu</th>
+                    <th>Ürün Durumu</th>
+                    <th class="sortable" onclick="sortBy('SaleStatusUpdated')" id="th-SaleStatusUpdated">
+                        Son Güncelleme <i class="bi bi-arrow-down-up sort-icon"></i>
+                    </th>
+                    <th style="text-align:center;min-width:160px;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="salesBody">
+                <tr>
+                    <td colspan="14" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top"
+         style="background:#fafbfc;" id="paginationWrapper">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- DETAIL MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#10b981,#059669);">
+                <h5 class="modal-title" id="detailModalLabel">
+                    <i class="bi bi-bag-check me-2"></i>Ürün Kartı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailBody">
+                <div class="text-center py-4"><div class="spinner-efbis mx-auto"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- SALE STATUS CONFIRM MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="saleStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div id="saleStatusIcon" class="confirm-icon" style="background:#d1fae5;">
+                    <i class="bi bi-bag-check" style="color:#059669;"></i>
+                </div>
+                <h6 class="fw-700 mb-2" id="saleStatusTitle">Satış Durumunu Değiştir</h6>
+                <p class="text-muted mb-0" style="font-size:13.5px;" id="saleStatusMessage">
+                    Devam etmek istiyor musunuz?
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn fw-600" id="btnConfirmSaleStatus" onclick="confirmSaleStatusChange()">
+                    Evet, Devam Et
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- PRICE EDIT MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="priceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-tag me-2"></i>Satış Fiyatı Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="priceProductId" />
+                <div class="mb-3">
+                    <label class="efbis-label">Ürün</label>
+                    <div id="priceProductName" class="fw-600" style="font-size:14px;"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="efbis-label">Yeni Satış Fiyatı <span class="required">*</span></label>
+                    <div class="input-group-price">
+                        <span class="currency-prefix">₺</span>
+                        <input type="number" id="newSalePrice" class="efbis-input"
+                               placeholder="0.00" min="0" step="0.01" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="efbis-label">KDV Oranı</label>
+                    <select id="newSaleVatRate" class="efbis-select">
+                        <option value="0">%0</option>
+                        <option value="1">%1</option>
+                        <option value="8">%8</option>
+                        <option value="10">%10</option>
+                        <option value="20" selected>%20</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="efbis-label">KDV Dahil mi?</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="newVatIncluded" id="vatExc2" value="false" checked />
+                            <label for="vatExc2">Hariç</label>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="newVatIncluded" id="vatInc2" value="true" />
+                            <label for="vatInc2">Dahil</label>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn-efbis-primary" onclick="saveSalePrice()">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- BULK PRICE MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="bulkPriceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-tags me-2"></i>Toplu Fiyat Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size:13px;">
+                    <strong id="bulkPriceCount">0</strong> seçili ürünün satış fiyatı güncellenecek.
+                </p>
+                <div class="mb-3">
+                    <label class="efbis-label">Yeni Satış Fiyatı <span class="required">*</span></label>
+                    <div class="input-group-price">
+                        <span class="currency-prefix">₺</span>
+                        <input type="number" id="bulkNewPrice" class="efbis-input"
+                               placeholder="0.00" min="0" step="0.01" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn-efbis-primary" onclick="saveBulkPrice()">
+                    <i class="bi bi-check-lg me-1"></i>Güncelle
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- BULK CATEGORY MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="bulkCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-folder me-2"></i>Toplu Kategori Değiştir</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size:13px;">
+                    <strong id="bulkCategoryCount">0</strong> seçili ürünün kategorisi değiştirilecek.
+                </p>
+                <div class="mb-3">
+                    <label class="efbis-label">Yeni Kategori <span class="required">*</span></label>
+                    <select id="bulkNewCategory" class="efbis-select">
+                        <option value="">-- Seçin --</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat.Id">@cat.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button class="btn-efbis-primary" onclick="saveBulkCategory()">
+                    <i class="bi bi-check-lg me-1"></i>Değiştir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/salesProducts.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,374 @@
+@{
+    ViewData["Title"] = "Hızlı Satış (POS Kasa)";
+    Layout = "_Layout";
+    var customers = ViewBag.Customers as List<EfbisMuhasebe.Domain.Entities.Customer> ?? new();
+    var cashAccounts = ViewBag.CashAccounts as List<EfbisMuhasebe.Domain.Entities.CashAccount> ?? new();
+    var categories = ViewBag.Categories as List<EfbisMuhasebe.Domain.Entities.Category> ?? new();
+}
+
+@section Styles {
+    <style>
+        .pos-container {
+            min-height: calc(100vh - 90px);
+        }
+        .pos-product-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: white;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+        .pos-product-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.15);
+            border-color: var(--primary);
+        }
+        .pos-product-card:active {
+            transform: scale(0.97);
+        }
+        .pos-category-btn {
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 7px 18px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .cart-panel {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 80px;
+        }
+        .cart-item-row {
+            padding: 10px 14px;
+            border-bottom: 1px dashed #e2e8f0;
+            transition: background 0.15s ease;
+        }
+        .cart-item-row:hover {
+            background: #f8fafc;
+        }
+        .preset-cash-btn {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #1e293b;
+            padding: 8px;
+            transition: all 0.15s ease;
+        }
+        .preset-cash-btn:hover {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+        }
+        .thermal-receipt {
+            font-family: 'Courier New', Courier, monospace;
+            background: #fff;
+            color: #000;
+            padding: 20px;
+            border: 1px solid #ddd;
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item">Satış</li>
+    <li class="breadcrumb-item active">Hızlı Satış (POS Kasa)</li>
+}
+
+<div class="pos-container">
+    <!-- Top Configuration Header Bar -->
+    <div class="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary p-2 rounded-3 fs-5"><i class="bi bi-person-bounding-box"></i></span>
+                    <div class="flex-grow-1">
+                        <label class="form-label text-muted small fw-bold mb-0" style="font-size:11px;">Müşteri / Cari Hesabı</label>
+                        <select class="form-select form-select-sm fw-bold" id="posCustomerSelect">
+                            <option value="0">🛒 Perakende Müşteri (Hızlı Kasa)</option>
+                            @foreach (var c in customers)
+                            {
+                                <option value="@c.Id">@c.Title (@c.CustomerCode)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success-subtle text-success p-2 rounded-3 fs-5"><i class="bi bi-wallet2"></i></span>
+                    <div class="flex-grow-1">
+                        <label class="form-label text-muted small fw-bold mb-0" style="font-size:11px;">Tahsilat Kasası / Banka</label>
+                        <select class="form-select form-select-sm fw-bold text-success" id="posCashAccountSelect">
+                            @foreach (var acc in cashAccounts)
+                            {
+                                <option value="@acc.Id">@acc.AccountName (@acc.AccountCode) - @acc.Balance.ToString("N0") ₺</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2 text-end d-flex gap-1 justify-content-end">
+                <button class="btn btn-sm btn-outline-warning fw-bold" onclick="holdCurrentPosOrder()" title="Mevcut sepeti askıya al">
+                    <i class="bi bi-pause-circle"></i> Askıya Al
+                </button>
+                <button class="btn btn-sm btn-outline-info fw-bold position-relative" onclick="openHeldOrdersModal()" title="Askıdaki sepetleri gör">
+                    <i class="bi bi-clock-history"></i> Askıdakiler
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="heldOrdersBadge" style="font-size:10px;">0</span>
+                </button>
+                <button class="btn btn-sm btn-outline-dark fw-bold" onclick="openZReportModal()" title="Gün sonu Z-Raporu">
+                    <i class="bi bi-file-earmark-bar-graph"></i> Z-Raporu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid (Products & Cart) -->
+    <div class="row g-4">
+        <!-- Left Product Grid (8 Cols) -->
+        <div class="col-lg-7 col-xl-8">
+            <!-- Search & Category Filters -->
+            <div class="d-flex flex-column gap-3 mb-4">
+                <div class="input-group input-group-lg shadow-sm rounded-4 overflow-hidden">
+                    <span class="input-group-text bg-white border-0 ps-3 text-primary"><i class="bi bi-upc-scan fs-5"></i></span>
+                    <input type="text" class="form-control border-0 ps-2 fs-6" id="posProductSearch" placeholder="Ürün adı, barkod okutun veya kod yazın + Enter (ör: 869000000001)..." onkeyup="handlePosSearchKeyup(event)">
+                    <span class="input-group-text bg-success-subtle text-success border-0 px-3 fw-bold small" style="font-size:11px;">
+                        <i class="bi bi-broadcast me-1"></i> BARKOD OKUYUCU AKTİF
+                    </span>
+                </div>
+
+                <!-- Category Pills -->
+                <div class="d-flex gap-2 overflow-x-auto pb-2" id="posCategoryPills">
+                    <button class="btn btn-primary pos-category-btn active" data-cat="0" onclick="selectPosCategory(0, this)">
+                        Tüm Kategoriler
+                    </button>
+                    @foreach (var cat in categories)
+                    {
+                        <button class="btn btn-light pos-category-btn text-dark border" data-cat="@cat.Id" onclick="selectPosCategory(@cat.Id, this)">
+                            @cat.Name
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Product Grid -->
+            <div class="row g-3" id="posProductGrid">
+                <div class="col-12 text-center text-muted py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">Satış ürünleri yükleniyor...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Cart Panel (4 Cols) -->
+        <div class="col-lg-5 col-xl-4">
+            <div class="cart-panel p-4">
+                <div class="d-flex align-items-center justify-content-between pb-3 border-bottom mb-3">
+                    <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-bag-check-fill text-primary fs-5"></i> Satış Sepeti
+                    </h6>
+                    <div class="d-flex gap-1 align-items-center">
+                        <button class="btn btn-xs btn-dark fw-bold d-none" id="btnPrintCartDraft" onclick="printCartDraftReceipt()" title="Sepet Bilgi / Adisyon Fişi Yazdır" style="font-size:11px;">
+                            <i class="bi bi-printer me-1"></i> Fiş Yazdır
+                        </button>
+                        <button class="btn btn-xs btn-outline-danger p-1" onclick="clearPosCart()" title="Sepeti Temizle"><i class="bi bi-trash"></i></button>
+                        <span class="badge bg-primary-subtle text-primary fw-bold font-monospace" id="cartItemCountBadge">0 Kalem</span>
+                    </div>
+                </div>
+
+                <!-- Cart Items List -->
+                <div style="max-height: 250px; overflow-y: auto;" id="posCartItemList">
+                    <div class="text-center text-muted py-5" id="emptyCartNotice">
+                        <i class="bi bi-cart-x fs-1 d-block mb-2 text-muted opacity-50"></i>
+                        Sepetiniz boş.<br>Soldaki ürünlere veya barkod okuyucuya tıklayarak ekleyin.
+                    </div>
+                </div>
+
+                <!-- Totals Breakdown -->
+                <div class="pt-3 border-top mt-3">
+                    <div class="d-flex justify-content-between text-muted mb-1 small">
+                        <span>Ara Toplam (KDV Hariç):</span>
+                        <strong class="font-monospace text-dark" id="cartSubtotal">0,00 ₺</strong>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted mb-1 small">
+                        <span>Hızlı İskonto Tutarı:</span>
+                        <strong class="font-monospace text-danger" id="cartDiscountTotal">0,00 ₺</strong>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted mb-2 small">
+                        <span>Toplam KDV Tutarı:</span>
+                        <strong class="font-monospace text-muted" id="cartVatTotal">0,00 ₺</strong>
+                    </div>
+
+                    <!-- Discount Quick Buttons -->
+                    <div class="d-flex gap-1 mb-2">
+                        <button class="btn btn-xs btn-outline-secondary w-100 fw-bold" style="font-size:10px;" onclick="applyPosGlobalDiscount(5)">%5 İskonto</button>
+                        <button class="btn btn-xs btn-outline-secondary w-100 fw-bold" style="font-size:10px;" onclick="applyPosGlobalDiscount(10)">%10 İskonto</button>
+                        <button class="btn btn-xs btn-outline-secondary w-100 fw-bold" style="font-size:10px;" onclick="applyPosGlobalDiscount(15)">%15 İskonto</button>
+                        <button class="btn btn-xs btn-outline-danger w-100 fw-bold" style="font-size:10px;" onclick="applyPosGlobalDiscount(0)">İptal</button>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center p-3 rounded-3 bg-dark text-white mb-3 shadow-sm">
+                        <span class="fw-bold fs-6">GENEL TOPLAM</span>
+                        <strong class="fs-3 font-monospace text-success" id="cartGrandTotal">0,00 ₺</strong>
+                    </div>
+
+                    <!-- Quick Cash Received Presets -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold mb-1" style="font-size:11px;">Alınan Nakit Tutarı (Para Üstı Hesabı)</label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-light text-muted">₺</span>
+                            <input type="number" class="form-control font-monospace fw-bold fs-5 text-end" id="posReceivedAmount" placeholder="0.00" oninput="calculatePosChange()">
+                        </div>
+                        <div class="row g-2">
+                            <div class="col"><button class="preset-cash-btn w-100" onclick="setPosReceivedPreset('EXACT')">Tam Tutar</button></div>
+                            <div class="col"><button class="preset-cash-btn w-100" onclick="setPosReceivedPreset(100)">100 ₺</button></div>
+                            <div class="col"><button class="preset-cash-btn w-100" onclick="setPosReceivedPreset(200)">200 ₺</button></div>
+                            <div class="col"><button class="preset-cash-btn w-100" onclick="setPosReceivedPreset(500)">500 ₺</button></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center p-2 rounded-3 bg-light border mb-3">
+                        <span class="text-muted small font-monospace">Para Üstü:</span>
+                        <strong class="fs-5 font-monospace text-primary" id="posChangeAmount">0,00 ₺</strong>
+                    </div>
+
+                    <!-- Checkout Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-lg fw-bold py-2.5 shadow" onclick="processPosCheckout('Nakit')">
+                            <i class="bi bi-cash-stack me-2"></i> ⚡ NAKİT ÖDEME AL
+                        </button>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button class="btn btn-primary fw-bold py-2 shadow-sm w-100" onclick="processPosCheckout('KrediKarti')" style="font-size:12px;">
+                                    <i class="bi bi-credit-card-2-front me-1"></i> KREDİ KARTI
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-warning fw-bold text-dark py-2 shadow-sm w-100" onclick="processPosCheckout('YemekKarti')" style="font-size:12px;">
+                                    <i class="bi bi-ticket-perforated me-1"></i> YEMEK KARTI
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🎉 ÖDEME BAŞARIYLA ONAYLANDI MODAL -->
+<div class="modal fade" id="paymentSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-body p-4 text-center" style="background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);">
+                <div class="mb-3">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle shadow-lg" style="width:75px;height:75px;font-size:38px;">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark mb-1">Ödeme Başarıyla Onaylandı!</h4>
+                <p class="text-muted small mb-4">Satış kaydı tamamlandı ve kasa bakiyesine işlendi.</p>
+
+                <div class="p-3 bg-white rounded-3 border text-start mb-4 shadow-sm">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Satış Fişi No:</span>
+                        <strong class="font-monospace text-dark" id="successInvoiceNum">POS-2026-0001</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Ödeme Yöntemi:</span>
+                        <span class="badge bg-success-subtle text-success fw-bold" id="successPaymentType">Nakit</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Tahsil Edilen Tutar:</span>
+                        <strong class="font-monospace text-success fs-5" id="successGrandTotal">0,00 ₺</strong>
+                    </div>
+                    <div class="d-flex justify-content-between pt-2 border-top">
+                        <span class="text-muted small">Müşteriye Para Üstü:</span>
+                        <strong class="font-monospace text-primary fs-5" id="successChangeAmount">0,00 ₺</strong>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-dark btn-lg fw-bold py-2.5 shadow" onclick="printReceiptFromSuccessModal()">
+                        <i class="bi bi-printer me-2"></i> Termal Fiş Yazdır
+                    </button>
+                    <button type="button" class="btn btn-outline-success fw-bold py-2" data-bs-dismiss="modal">
+                        <i class="bi bi-plus-circle me-1"></i> Yeni Satış Başlat
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🖨️ THERMAL RECEIPT MODAL -->
+<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-2 px-3">
+                <h6 class="modal-title fw-bold text-white mb-0"><i class="bi bi-printer me-2"></i> Satış Bilgi Fişi (Termal Yazıcı)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light text-center">
+                <div class="thermal-receipt text-start" id="thermalReceiptContent">
+                    <!-- Receipt HTML rendered via JS -->
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="window.print()"><i class="bi bi-printer me-1"></i> Fişi Yazdır</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 📊 GÜNLÜK KASA Z-RAPORU MODAL -->
+<div class="modal fade" id="zReportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h6 class="modal-title fw-bold text-white mb-0"><i class="bi bi-file-earmark-bar-graph text-warning me-2"></i> Günlük Kasa Z-Raporu Özeti</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="zReportModalBody">
+                <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-sm btn-dark fw-bold" onclick="window.print()"><i class="bi bi-printer me-1"></i> Z-Raporu Yazdır</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ⏳ ASKIYA ALINAN SEPETLER MODAL -->
+<div class="modal fade" id="heldOrdersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-info text-white py-3 px-4">
+                <h6 class="modal-title fw-bold text-white mb-0"><i class="bi bi-pause-circle me-2"></i> Askıya Alınan Satış Sepetleri</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="heldOrdersModalBody">
+                <div class="text-center text-muted py-4">Askıda bekleyen sepet bulunmamaktadır.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/pos.js" asp-append-version="true"></script>
+}

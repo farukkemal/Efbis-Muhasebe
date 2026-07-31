@@ -1,0 +1,518 @@
+@{
+    ViewData["Title"] = "Maaş Ödeme & Bordro Yönetimi";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Employees">İnsan Kaynakları</a></li>
+    <li class="breadcrumb-item active">Maaş Ödemeleri</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-wallet2 me-2 text-teal" style="color: #0d9488;"></i>Maaş Ödeme & Bordro Yönetimi
+        </h1>
+        <p class="page-subtitle">
+            Personellerin aylık bordrolarını, maaş kesintilerini, primlerini ve banka ödemelerini takip edin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshData()" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-export-excel" onclick="exportTableToCSV('salaryTable', 'maas_odemeleri.csv')" title="Excel / CSV Olarak İndir">
+            <i class="bi bi-file-earmark-excel me-1"></i>Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="downloadBankTransferFile()" title="Banka Ödeme Listesi İndir (EFT/Havale)">
+            <i class="bi bi-bank me-1"></i>Banka Listesi
+        </button>
+        <button class="btn btn-sm btn-success text-white fw-bold" onclick="bulkPayModal()" title="Seçili Dönemdeki Bekleyen Tüm Ödemeleri Tamamla">
+            <i class="bi bi-check2-all me-1"></i>Tümünü Öde
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreatePaymentModal()">
+            <i class="bi bi-plus-lg me-1"></i>Özel Maaş / Prim Kaydı
+        </button>
+        <button class="btn btn-sm text-white fw-bold" style="background: linear-gradient(135deg, #4f46e5, #6366f1);" onclick="generatePayrollModal()">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Bordro Oluştur
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #0d9488;">
+            <div class="stat-icon" style="background:#ccfbf1;color:#0d9488;"><i class="bi bi-cash-stack"></i></div>
+            <div>
+                <div class="stat-value" style="color:#0d9488;" id="statTotalAmount">0,00 ₺</div>
+                <div class="stat-label">Toplam Maaş Yükü (Brüt + Prim)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statPaidCount">0 kayıt</div>
+                <div class="stat-label" id="statPaidAmountLabel">Tamamlanan Ödemeler: 0,00 ₺</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+            <div class="stat-icon orange"><i class="bi bi-hourglass-split"></i></div>
+            <div>
+                <div class="stat-value text-warning" id="statPendingCount">0 kayıt</div>
+                <div class="stat-label" id="statPendingAmountLabel">Ödeme Bekleyen: 0,00 ₺</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #6366f1;">
+            <div class="stat-icon purple"><i class="bi bi-calculator-fill"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statAvgSalary">0,00 ₺</div>
+                <div class="stat-label">Ortalama Personel Net Maaşı</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Analytics Chart Accordion / Card ────────────────────────────────────── -->
+<div class="efbis-card mb-4">
+    <div class="efbis-card-header d-flex justify-content-between align-items-center">
+        <div class="efbis-card-title">
+            <i class="bi bi-pie-chart-fill text-primary"></i>
+            Departman Bazlı Maaş & Maliyet Dağılımı
+        </div>
+        <button class="btn btn-sm btn-link text-decoration-none text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#chartCollapse">
+            <i class="bi bi-chevron-down"></i> Grafikleri Göster/Gizle
+        </button>
+    </div>
+    <div class="collapse show" id="chartCollapse">
+        <div class="card-body bg-light border-top">
+            <div class="row g-4 align-items-center">
+                <div class="col-12 col-lg-7">
+                    <div style="height: 220px; position: relative;">
+                        <canvas id="salaryDeptChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-5">
+                    <div class="p-3 bg-white rounded border shadow-sm">
+                        <h6 class="fw-bold mb-3 text-dark border-bottom pb-2">
+                            <i class="bi bi-info-circle text-info me-1"></i>Yasal Kesinti & Prim Oranları
+                        </h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted" style="font-size:13px;">SGK İşçi Payı (%14):</span>
+                            <strong class="text-dark" id="statSgkSum">0,00 ₺</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted" style="font-size:13px;">Gelir Vergisi (%15):</span>
+                            <strong class="text-dark" id="statTaxSum">0,00 ₺</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted" style="font-size:13px;">Dağıtılan Toplam Prim:</span>
+                            <strong class="text-success" id="statBonusSum">+0,00 ₺</strong>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold text-dark" style="font-size:13.5px;">Net Dağıtılan Toplam Maaş:</span>
+                            <strong class="text-primary fs-6" id="statNetSum">0,00 ₺</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Card ──────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="efbis-card-title">
+            <i class="bi bi-list-columns-reverse text-primary"></i>
+            Maaş Bordroları ve Ödeme Listesi
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 kayıt</span>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-center">
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="filterYear" onchange="refreshData()">
+                    <option value="2026" selected>2026 Yılı</option>
+                    <option value="2025">2025 Yılı</option>
+                    <option value="2024">2024 Yılı</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="filterMonth" onchange="refreshData()">
+                    <option value="">Tüm Aylar</option>
+                    <option value="1">Ocak</option>
+                    <option value="2">Şubat</option>
+                    <option value="3">Mart</option>
+                    <option value="4">Nisan</option>
+                    <option value="5">Mayıs</option>
+                    <option value="6">Haziran</option>
+                    <option value="7" selected>Temmuz</option>
+                    <option value="8">Ağustos</option>
+                    <option value="9">Eylül</option>
+                    <option value="10">Ekim</option>
+                    <option value="11">Kasım</option>
+                    <option value="12">Aralık</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="filter-select w-100" id="filterDepartment" onchange="refreshData()">
+                    <option value="">Tüm Departmanlar</option>
+                    <option value="1">🏬 Depo & Lojistik</option>
+                    <option value="2">💵 Kasa Birimi</option>
+                    <option value="3">🏷️ Reyon & Satış</option>
+                    <option value="4">🎧 Müşteri Danışmanı</option>
+                    <option value="5">👔 Yönetim & İdari</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <select class="filter-select w-100" id="filterStatus" onchange="refreshData()">
+                    <option value="">Tüm Durumlar</option>
+                    <option value="1">🟡 Beklemede</option>
+                    <option value="2">🟢 Ödendi</option>
+                    <option value="3">⚪ İptal Edildi</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="filterSearch" class="search-input" placeholder="Personel koda veya isme göre ara..." oninput="debounceSearch()" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="salaryTable">
+            <thead>
+                <tr>
+                    <th>Ödeme Kodu</th>
+                    <th>Personel</th>
+                    <th>Departman</th>
+                    <th>Dönem</th>
+                    <th style="text-align:right;">Brüt Ücret</th>
+                    <th style="text-align:right;">Kesintiler</th>
+                    <th style="text-align:right;">Net Ücret</th>
+                    <th style="text-align:right;">Prim / Ek</th>
+                    <th style="text-align:right;">Ele Geçen Net</th>
+                    <th>Ödeme Tarihi</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="12" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Maaş ödeme kayıtları yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationControls"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: BORDRO ZARFI / DETAY -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="paySlipModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0f172a, #1e293b);">
+                <h5 class="modal-title" id="paySlipTitle">
+                    <i class="bi bi-file-earmark-person me-2 text-primary"></i>Resmi Personel Bordro Zarfı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="paySlipContent">
+                <!-- Dynamic Pay Slip HTML rendered via JS -->
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" onclick="printPaySlip()">
+                    <i class="bi bi-printer me-1"></i>Bordroyu Yazdır
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: BORDRO OLUŞTUR (Generate Payroll) -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="generatePayrollModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Aylık Toplu Bordro Oluştur
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size:13.5px;">
+                    Seçtiğiniz dönem için tüm aktif mağaza çalışanlarının bordro kayıtları otomatik olarak hesaplanıp sistemde <strong>Beklemede</strong> durumunda oluşturulacaktır.
+                </p>
+                <div class="mb-3">
+                    <label class="efbis-label">Hedef Yıl <span class="required">*</span></label>
+                    <select class="efbis-select" id="genYear">
+                        <option value="2026" selected>2026</option>
+                        <option value="2025">2025</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="efbis-label">Hedef Ay <span class="required">*</span></label>
+                    <select class="efbis-select" id="genMonth">
+                        <option value="1">Ocak</option>
+                        <option value="2">Şubat</option>
+                        <option value="3">Mart</option>
+                        <option value="4">Nisan</option>
+                        <option value="5">Mayıs</option>
+                        <option value="6">Haziran</option>
+                        <option value="7" selected>Temmuz</option>
+                        <option value="8">Ağustos</option>
+                        <option value="9">Eylül</option>
+                        <option value="10">Ekim</option>
+                        <option value="11">Kasım</option>
+                        <option value="12">Aralık</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="confirmGeneratePayroll()">
+                    <i class="bi bi-gear-fill me-1"></i>Bordroyu Hesapla & Oluştur
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: YENİ ÖZEL MAAŞ / PRİM KAYDI EKLE -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="createPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0d9488, #14b8a6);">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle me-2"></i>Özel Maaş / Prim / Ek Ödeme Kaydı
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createPaymentForm" onsubmit="event.preventDefault(); saveCustomPayment();">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Personel <span class="required">*</span></label>
+                            <select class="efbis-select" id="newEmpId" required onchange="autoFillSalary()">
+                                <option value="">-- Personel Seçiniz --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Yıl <span class="required">*</span></label>
+                            <select class="efbis-select" id="newYear" required>
+                                <option value="2026" selected>2026</option>
+                                <option value="2025">2025</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Ay <span class="required">*</span></label>
+                            <select class="efbis-select" id="newMonth" required>
+                                <option value="1">Ocak</option>
+                                <option value="2">Şubat</option>
+                                <option value="3">Mart</option>
+                                <option value="4">Nisan</option>
+                                <option value="5">Mayıs</option>
+                                <option value="6">Haziran</option>
+                                <option value="7" selected>Temmuz</option>
+                                <option value="8">Ağustos</option>
+                                <option value="9">Eylül</option>
+                                <option value="10">Ekim</option>
+                                <option value="11">Kasım</option>
+                                <option value="12">Aralık</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Net Maaş (₺) <span class="required">*</span></label>
+                            <input type="number" class="efbis-input text-end" id="newNetSalary" value="30000" min="0" step="100" oninput="recalcDeductions()" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Brüt Maaş (₺) (Auto x1.42)</label>
+                            <input type="number" class="efbis-input text-end bg-light" id="newGrossSalary" value="42600" readonly />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Prim / İkramiye (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="newBonus" value="0" min="0" step="100" oninput="recalcDeductions()" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Gelir Vergisi (%15)</label>
+                            <input type="number" class="efbis-input text-end bg-light" id="newTax" value="4500" readonly />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">SGK İşçi Payı (%14)</label>
+                            <input type="number" class="efbis-input text-end bg-light" id="newSgk" value="4200" readonly />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Diğer Kesintiler (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="newOtherDeductions" value="0" min="0" step="50" oninput="recalcDeductions()" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3 align-items-center">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Ödeme Hesabı (Kasa / Banka)</label>
+                            <select class="efbis-select" id="newCashAccountId">
+                                <option value="">-- Ödeme Anında Seçilecek --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border text-end">
+                                <div class="text-muted small">Ele Geçen Toplam Ödeme:</div>
+                                <strong class="fs-4 text-primary" id="newTotalPaymentDisplay">30.000,00 ₺</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama / Not</label>
+                        <input type="text" class="efbis-input" id="newDescription" placeholder="Örn: Temmuz 2026 Performans Primi Dahil Maaş Ödemesi" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="saveCustomPayment()">
+                    <i class="bi bi-check-lg me-1"></i>Kaydı Oluştur
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: BORDRO DÜZENLE -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="editPayrollModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square me-2 text-warning"></i>Maaş Bordro Kaydını Düzenle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="editPayrollForm">
+                    <input type="hidden" id="editId" />
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Personel</label>
+                            <input type="text" class="efbis-input bg-light" id="editEmployeeName" readonly />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Yıl</label>
+                            <input type="number" class="efbis-input bg-light" id="editYear" readonly />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="efbis-label">Ay</label>
+                            <input type="number" class="efbis-input bg-light" id="editMonth" readonly />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Net Maaş (₺) <span class="required">*</span></label>
+                            <input type="number" class="efbis-input text-end" id="editNetSalary" min="0" step="100" oninput="recalcEditDeductions()" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Brüt Maaş (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="editGrossSalary" step="100" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Prim / İkramiye (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="editBonus" min="0" step="100" oninput="recalcEditDeductions()" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Gelir Vergisi Kesintisi (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="editTax" step="50" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">SGK İşçi Payı (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="editSgk" step="50" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Diğer Kesintiler (₺)</label>
+                            <input type="number" class="efbis-input text-end" id="editOtherDeductions" min="0" step="50" oninput="recalcEditDeductions()" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3 align-items-center">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Ödeme Durumu</label>
+                            <select class="efbis-select" id="editStatus">
+                                <option value="1">Beklemede (Ödenmedi)</option>
+                                <option value="2">Ödendi (Tamamlandı)</option>
+                                <option value="3">İptal Edildi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="efbis-label">Kasa / Banka Hesabı</label>
+                            <select class="efbis-select" id="editCashAccountId">
+                                <option value="">-- Kasa Hesabı Seçilmedi --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border text-end">
+                                <div class="text-muted small">Ele Geçen Net Ödeme:</div>
+                                <strong class="fs-4 text-primary" id="editTotalPaymentDisplay">0,00 ₺</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama / Not</label>
+                        <input type="text" class="efbis-input" id="editDescription" placeholder="Örn: Temmuz ayı prim düzenlemesi" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="submitEditPayroll()">
+                    <i class="bi bi-save me-1"></i>Değişiklikleri Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/salaryPayments.js" asp-append-version="true"></script>
+}

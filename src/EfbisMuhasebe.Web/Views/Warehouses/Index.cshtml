@@ -1,0 +1,224 @@
+@{
+    ViewData["Title"] = "Depo Yönetimi";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item"><a href="/Products">Stok Yönetimi</a></li>
+    <li class="breadcrumb-item active">Depolar</li>
+}
+
+@Html.AntiForgeryToken()
+
+<!-- ─── Page Header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-building me-2 text-primary"></i>Depo Yönetimi
+        </h1>
+        <p class="page-subtitle">
+            Merkez, şube ve soğuk hava depolarınızı yönetin, varsayılan sevkiyat deposunu belirleyin.
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn-export-excel" onclick="exportTableToCSV('warehousesTable', 'depo_listesi.csv')" title="Tabloyu Excel/CSV olarak indir">
+            <i class="bi bi-file-earmark-excel"></i> Excel İndir
+        </button>
+        <button class="btn-export-print" onclick="printTable('warehousesTable', 'Depo Yönetimi Raporu')" title="Listeyi Yazdır">
+            <i class="bi bi-printer"></i> Yazdır
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" title="Yenile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Yenile
+        </button>
+        <button class="btn-efbis-primary" onclick="openCreateModal()">
+            <i class="bi bi-plus-lg me-1"></i>Yeni Depo Ekle
+        </button>
+    </div>
+</div>
+
+<!-- ─── Dashboard Stat Cards ─────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #6366f1;">
+            <div class="stat-icon purple"><i class="bi bi-building"></i></div>
+            <div>
+                <div class="stat-value text-primary" id="statTotal">0</div>
+                <div class="stat-label">Toplam Depo Sayısı</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #10b981;">
+            <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+            <div>
+                <div class="stat-value text-success" id="statActive">0</div>
+                <div class="stat-label">Aktif Depolar</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #94a3b8;">
+            <div class="stat-icon" style="background:#f1f5f9;color:#64748b;"><i class="bi bi-pause-circle"></i></div>
+            <div>
+                <div class="stat-value text-secondary" id="statPassive">0</div>
+                <div class="stat-label">Pasif Depolar</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card" style="border-left: 4px solid #06b6d4;">
+            <div class="stat-icon" style="background:#ecfeff;color:#0891b2;"><i class="bi bi-star"></i></div>
+            <div>
+                <div class="stat-value text-info" id="statDefault" style="font-size:16px;">—</div>
+                <div class="stat-label">Varsayılan Sevkiyat Deposu</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Main Content Card ──────────────────────────────────────────────────────── -->
+<div class="efbis-card">
+    <div class="efbis-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="efbis-card-title">
+            <i class="bi bi-houses text-primary"></i>
+            Depo Listesi
+            <span class="badge bg-secondary fw-normal ms-1" id="totalBadge">0 depo</span>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Depo kodu, depo adı veya şehir ara..." oninput="debounceSearch()" />
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="filter-select w-100" id="statusFilter" onchange="loadData(1)">
+                    <option value="">Tüm Durumlar</option>
+                    <option value="1">🟢 Aktif</option>
+                    <option value="2">⚪ Pasif</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2 ms-auto text-end">
+                <select class="filter-select" id="pageSizeSelect" onchange="loadData(1)">
+                    <option value="10">10 / Sayfa</option>
+                    <option value="25">25 / Sayfa</option>
+                    <option value="50">50 / Sayfa</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive" id="tableWrapper">
+        <table class="efbis-table" id="warehousesTable">
+            <thead>
+                <tr>
+                    <th>Depo Kodu</th>
+                    <th>Depo Adı</th>
+                    <th>Şehir</th>
+                    <th>Telefon</th>
+                    <th>Adres</th>
+                    <th>Varsayılan</th>
+                    <th>Durum</th>
+                    <th style="text-align:center;">İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="8" class="text-center py-5">
+                        <div class="spinner-efbis mx-auto d-block mb-2"></div>
+                        <span class="text-muted">Yükleniyor...</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-top" style="background:#fafbfc;">
+        <div class="text-muted" style="font-size:13px;" id="paginationInfo">—</div>
+        <div class="efbis-pagination" id="paginationButtons"></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE / EDIT MODAL -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade modal-efbis" id="warehouseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#4f46e5,#6366f1);">
+                <h5 class="modal-title text-white" id="warehouseModalLabel">
+                    <i class="bi bi-building me-2"></i>Yeni Depo Ekle
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="warehouseForm" onsubmit="event.preventDefault(); saveWarehouse();">
+                    <input type="hidden" id="warehouseId" />
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="efbis-label">Depo Kodu <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="warehouseCode" required maxlength="20" placeholder="DPO-001" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="efbis-label">Depo Adı <span class="required">*</span></label>
+                            <input type="text" class="efbis-input" id="name" required maxlength="200" placeholder="Ana Depo / Şube Deposu" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="efbis-label">Şehir</label>
+                            <input type="text" class="efbis-input" id="city" maxlength="100" placeholder="İstanbul" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Telefon</label>
+                            <input type="text" class="efbis-input" id="phone" maxlength="20" placeholder="0212 555 0000" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Adres</label>
+                        <textarea class="efbis-input" id="address" rows="2" maxlength="500" placeholder="OSB Sanayi Mah. 1. Cadde No: 5"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="efbis-label">Açıklama</label>
+                        <textarea class="efbis-input" id="description" rows="2" maxlength="1000" placeholder="Soğuk hava deposu, ana lojistik merkezi vb."></textarea>
+                    </div>
+
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch custom-switch p-0 m-0 d-flex align-items-center gap-2">
+                                <input class="form-check-input ms-0" type="checkbox" id="isDefault" style="width:40px;height:22px;" />
+                                <label class="form-check-label fw-600 cursor-pointer" for="isDefault" style="font-size:13.5px;">Varsayılan Sevkiyat Deposu Yap</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="efbis-label">Durum</label>
+                            <select class="efbis-select" id="status">
+                                <option value="1">🟢 Aktif</option>
+                                <option value="2">⚪ Pasif</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn-efbis-primary" onclick="saveWarehouse()">
+                    <i class="bi bi-check-lg me-1"></i>Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/warehouses.js" asp-append-version="true"></script>
+}

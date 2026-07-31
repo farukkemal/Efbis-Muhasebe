@@ -1,0 +1,168 @@
+@model EfbisMuhasebe.Application.DTOs.UserDto
+@{
+    ViewData["Title"] = "Profilim & Oturum Ayarları";
+}
+
+@section Breadcrumb {
+    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+    <li class="breadcrumb-item active">Profilim & Güvenlik</li>
+}
+
+@Html.AntiForgeryToken()
+
+<div class="page-header d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="page-title"><i class="bi bi-person-circle text-primary me-2"></i>Profilim & Oturum Ayarları</h1>
+        <p class="page-subtitle">Kullanıcı bilgilerinizi görün, güncelleyin ve hesabınızın şifresini değiştirin.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Kullanıcı Kartı & Avatar -->
+    <div class="col-md-4">
+        <div class="efbis-card p-4 text-center">
+            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow-sm fw-bold fs-2" style="width:90px;height:90px;border:3px solid #cbd5e1;">
+                @Model.Initials
+            </div>
+            <h5 class="fw-bold text-dark mb-1">@Model.FullName</h5>
+            <p class="text-muted small mb-2">@Model.Email</p>
+
+            <div class="mb-3">
+                <span class="badge @Model.RoleBadgeClass fs-6 px-3 py-2 fw-bold">@Model.RoleText</span>
+            </div>
+
+            <div class="p-3 bg-light rounded text-start font-monospace small">
+                <div class="d-flex justify-content-between mb-1"><span>Unvan:</span><strong>@(Model.Title ?? "—")</strong></div>
+                <div class="d-flex justify-content-between mb-1"><span>Telefon:</span><strong>@(Model.PhoneNumber ?? "—")</strong></div>
+                <div class="d-flex justify-content-between mb-1"><span>Son Giriş:</span><strong>@Model.FormattedLastLogin</strong></div>
+                <div class="d-flex justify-content-between"><span>Hesap Durumu:</span><strong class="text-success">🟢 Aktif</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profil Düzenleme & Şifre Değiştirme Formları -->
+    <div class="col-md-8">
+        <!-- Tab Form Card -->
+        <div class="efbis-card p-4">
+            <ul class="nav nav-tabs mb-4" id="profileTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active fw-bold" id="info-tab" data-bs-toggle="tab" data-bs-target="#infoPane" type="button" role="tab">
+                        <i class="bi bi-pencil-square me-1"></i> Profil Bilgilerimi Güncelle
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link fw-bold text-danger" id="pass-tab" data-bs-toggle="tab" data-bs-target="#passPane" type="button" role="tab">
+                        <i class="bi bi-shield-lock me-1"></i> Şifre Değiştir
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="profileTabContent">
+                <!-- Profil Bilgileri Formu -->
+                <div class="tab-pane fade show active" id="infoPane" role="tabpanel">
+                    <form id="profileUpdateForm" onsubmit="handleProfileUpdate(event)">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="efbis-label">E-Posta Adresi (Değiştirilemez)</label>
+                                <input type="email" class="efbis-input bg-light" value="@Model.Email" readonly disabled />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="efbis-label">Rol & Yetki Seviyesi</label>
+                                <input type="text" class="efbis-input bg-light" value="@Model.RoleText" readonly disabled />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="efbis-label">Ad Soyad <span class="text-danger">*</span></label>
+                                <input type="text" id="profFullName" class="efbis-input" value="@Model.FullName" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="efbis-label">Telefon Numarası</label>
+                                <input type="text" id="profPhone" class="efbis-input" value="@Model.PhoneNumber" placeholder="Örn: 0532 000 00 00" />
+                            </div>
+                            <div class="col-12">
+                                <label class="efbis-label">Unvan / Görev Tanımı</label>
+                                <input type="text" id="profTitle" class="efbis-input" value="@Model.Title" placeholder="Örn: Baş Muhasebeci / Finans Müdürü" />
+                            </div>
+                            <div class="col-12 text-end pt-3">
+                                <button type="submit" class="btn btn-primary fw-bold px-4">
+                                    <i class="bi bi-check-circle me-1"></i> Bilgilerimi Kaydet
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Şifre Değiştirme Formu -->
+                <div class="tab-pane fade" id="passPane" role="tabpanel">
+                    <form id="passwordChangeForm" onsubmit="handlePasswordChange(event)">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="efbis-label">Mevcut Şifreniz <span class="text-danger">*</span></label>
+                                <input type="password" id="currentPassword" class="efbis-input" placeholder="Mevcut şifreniz" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="efbis-label">Yeni Şifre <span class="text-danger">*</span></label>
+                                <input type="password" id="newPassword" class="efbis-input" placeholder="En az 6 karakter" required minlength="6" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="efbis-label">Yeni Şifre (Tekrar) <span class="text-danger">*</span></label>
+                                <input type="password" id="confirmPassword" class="efbis-input" placeholder="Yeni şifrenizi tekrar girin" required minlength="6" />
+                            </div>
+                            <div class="col-12 text-end pt-3">
+                                <button type="submit" class="btn btn-danger fw-bold px-4">
+                                    <i class="bi bi-key me-1"></i> Şifremi Güncelle
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function handleProfileUpdate(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('profFullName').value.trim();
+            const phoneNumber = document.getElementById('profPhone').value.trim();
+            const title = document.getElementById('profTitle').value.trim();
+
+            try {
+                const res = await efbisAjax.post('/Account/UpdateProfile', { FullName: fullName, PhoneNumber: phoneNumber, Title: title });
+                if (res.success) {
+                    showToast(res.message || 'Profil başarıyla güncellendi.', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(res.message || 'Güncelleme başarısız.', 'error');
+                }
+            } catch (err) {
+                showToast('Profil güncellenirken hata oluştu.', 'error');
+            }
+        }
+
+        async function handlePasswordChange(e) {
+            e.preventDefault();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showToast('Yeni şifreler uyuşmuyor.', 'warning');
+                return;
+            }
+
+            try {
+                const res = await efbisAjax.post('/Account/ChangePassword', { CurrentPassword: currentPassword, NewPassword: newPassword, ConfirmPassword: confirmPassword });
+                if (res.success) {
+                    showToast(res.message || 'Şifreniz başarıyla değiştirildi!', 'success');
+                    document.getElementById('passwordChangeForm').reset();
+                } else {
+                    showToast(res.message || 'Şifre değiştirilemedi.', 'error');
+                }
+            } catch (err) {
+                showToast('Şifre değiştirilirken hata oluştu.', 'error');
+            }
+        }
+    </script>
+}

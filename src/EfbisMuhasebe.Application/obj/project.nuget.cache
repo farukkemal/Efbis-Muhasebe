@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "dgSpecHash": "rKeNG2TWsys=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\simse\\Masaüstü\\Efbis Muhasebe\\EfbisMuhasebe\\src\\EfbisMuhasebe.Application\\EfbisMuhasebe.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\simse\\.nuget\\packages\\automapper\\14.0.0\\automapper.14.0.0.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\fluentvalidation\\11.11.0\\fluentvalidation.11.11.0.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.extensions.options\\8.0.0\\microsoft.extensions.options.8.0.0.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.extensions.primitives\\8.0.0\\microsoft.extensions.primitives.8.0.0.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.18\\microsoft.netcore.app.ref.9.0.18.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.18\\microsoft.windowsdesktop.app.ref.9.0.18.nupkg.sha512",
+    "C:\\Users\\simse\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.18\\microsoft.aspnetcore.app.ref.9.0.18.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "'AutoMapper' 14.0.0 paketinde önem derecesi yüksek olan bilinen bir https://github.com/advisories/GHSA-rvv3-g6hj-g44x güvenlik açığı var",
+      "projectPath": "C:\\Users\\simse\\Masaüstü\\Efbis Muhasebe\\EfbisMuhasebe\\src\\EfbisMuhasebe.Application\\EfbisMuhasebe.Application.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\simse\\Masaüstü\\Efbis Muhasebe\\EfbisMuhasebe\\src\\EfbisMuhasebe.Application\\EfbisMuhasebe.Application.csproj",
+      "libraryId": "AutoMapper",
+      "targetGraphs": [
+        "net9.0"
+      ]
+    }
+  ]
+}

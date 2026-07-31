@@ -1,0 +1,15 @@
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\bin\Debug\net9.0\EfbisMuhasebe.Application.deps.json
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\bin\Debug\net9.0\EfbisMuhasebe.Application.dll
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\bin\Debug\net9.0\EfbisMuhasebe.Application.pdb
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\bin\Debug\net9.0\EfbisMuhasebe.Domain.dll
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\bin\Debug\net9.0\EfbisMuhasebe.Domain.pdb
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.csproj.AssemblyReference.cache
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.AssemblyInfoInputs.cache
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.AssemblyInfo.cs
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.csproj.CoreCompileInputs.cache
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuh.1DF6D55E.Up2Date
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.dll
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\refint\EfbisMuhasebe.Application.dll
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\EfbisMuhasebe.Application.pdb
+C:\Users\simse\Masaüstü\Efbis Muhasebe\EfbisMuhasebe\src\EfbisMuhasebe.Application\obj\Debug\net9.0\ref\EfbisMuhasebe.Application.dll
