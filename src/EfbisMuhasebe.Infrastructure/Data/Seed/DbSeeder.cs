@@ -15,10 +15,19 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        // 1. Pre-existing uzaktan veritabanlarında (ör. Somee.com) master izni gerektirmeden EF Core Migration'larını uygula
+        // 1. Somee.com üzerindeki önceden oluşturulmuş veritabanına erişim kontrolü
+        if (!await context.Database.CanConnectAsync())
+        {
+            throw new InvalidOperationException(
+                "[EFBIS ERROR] Veritabanına bağlanılamadı! Lütfen Somee.com panelinde veritabanının oluşturulduğundan " +
+                "ve Render.com üzerindeki 'ConnectionStrings__DefaultConnection' çevre değişkeninin (Server, Database, User Id, Password) " +
+                "Somee.com veritabanı bilgileriyle BİREBİR EŞLEŞTİĞİNDEN emin olun.");
+        }
+
+        // 2. Pre-existing veritabanı üzerine EF Core Migration'larını uygula (master/CREATE DATABASE izni gerekmez)
         await context.Database.MigrateAsync();
 
-        // Veritabanında zaten veri varsa seed işlemini atla (mevcut verileri koru)
+        // 3. Veritabanında zaten veri varsa seed işlemini atla (mevcut verileri koru)
         if (await context.Users.AnyAsync())
         {
             return;
